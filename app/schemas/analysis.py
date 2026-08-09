@@ -45,6 +45,11 @@ class ChargingIssueAnalysis(BaseModel):
 
         return self
 
+class ChargingIssueResponse(BaseModel):
+    station_id: str
+    charger_model: str | None
+    analysis: ChargingIssueAnalysis
+
 class ChargingIssueRequest(BaseModel):
     station_id: str = Field(
         min_length=1,

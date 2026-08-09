@@ -99,10 +99,16 @@ def test_analyze_success() -> None:
         )
 
     assert response.status_code == 200
-    assert response.json()["category"] == "network"
-    assert response.json()["severity"] == "high"
-    assert response.json()["confidence"] == 0.95
-    assert response.json()["needs_human_escalation"] is False
+    data = response.json()
+
+    assert data["station_id"] == "KL-101"
+    assert data["charger_model"] == "Test Charger"
+    assert data["analysis"]["category"] == "network"
+    assert data["analysis"]["severity"] == "high"
+    assert data["analysis"]["confidence"] == 0.95
+
+    
+    assert data["analysis"]["needs_human_escalation"] is False
 
 
 def test_analyze_rejects_empty_message() -> None:
