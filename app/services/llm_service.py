@@ -12,7 +12,7 @@ class LLMServiceError(Exception):
 def generate_response(message: str) -> str:
     try:
         response = client.responses.create(
-            model="gpt-5-mini",
+            model=settings.openai_model,
             input=message,
         )
 
