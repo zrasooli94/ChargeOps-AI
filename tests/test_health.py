@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.schemas.analysis import ChargingIssueAnalysis
+from app.schemas.analysis import ChargingIssueAnalysis, DiagnosticStep
 from app.services.llm_service import LLMServiceError
 
 client = TestClient(app)
@@ -73,14 +73,14 @@ def test_analyze_success() -> None:
             "Incorrect OCPP configuration",
         ],
         diagnostic_steps=[
-            {
-                "step": 1,
-                "action": "Verify the OCPP endpoint.",
-            },
-            {
-                "step": 2,
-                "action": "Test backend connectivity.",
-            },
+            DiagnosticStep(
+                step=1,
+                action="Verify the OCPP endpoint.",
+            ),
+            DiagnosticStep(
+                step=2,
+                action="Test backend connectivity.",
+            ),
         ],
         needs_human_escalation=False,
     )
@@ -92,7 +92,9 @@ def test_analyze_success() -> None:
         response = client.post(
             "/analyze",
             json={
-                "message": "The charger cannot connect to the backend."
+                "station_id": "KL-101",
+                "charger_model": "Test Charger",
+                "issue": "The charger cannot connect to the backend.",
             },
         )
 
@@ -106,7 +108,10 @@ def test_analyze_success() -> None:
 def test_analyze_rejects_empty_message() -> None:
     response = client.post(
         "/analyze",
-        json={"message": ""},
+        json={
+            "station_id": "KL-101",
+            "issue": "",
+            },
     )
 
     assert response.status_code == 422
@@ -119,10 +124,10 @@ def test_critical_issue_requires_human_escalation() -> None:
         summary="Critical electrical fault detected.",
         likely_causes=["Power system failure"],
         diagnostic_steps=[
-            {
-                "step": 1,
-                "action": "Isolate the charging station.",
-            }
+            DiagnosticStep(
+                step=1,
+                action="Isolate the charging station.",
+            )
         ],
         needs_human_escalation=False,
     )
