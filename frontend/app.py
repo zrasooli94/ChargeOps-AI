@@ -19,9 +19,9 @@ st.set_page_config(
 )
 
 
-# -------------------------------------------------
-# Backend functions
-# -------------------------------------------------
+# =================================================
+# Backend API functions
+# =================================================
 
 
 def check_backend() -> bool:
@@ -49,6 +49,41 @@ def get_stations() -> list[dict]:
     return response.json()
 
 
+@st.cache_data(ttl=10)
+def get_incidents(
+    station_id: str,
+) -> list[dict]:
+    response = httpx.get(
+        f"{API_BASE_URL}/incidents",
+        params={
+            "station_id": station_id,
+            "limit": 100,
+        },
+        timeout=5.0,
+    )
+
+    response.raise_for_status()
+
+    return response.json()
+
+
+def update_incident_status(
+    incident_id: int,
+    status: str,
+) -> dict:
+    response = httpx.patch(
+        f"{API_BASE_URL}/incidents/{incident_id}",
+        json={
+            "status": status,
+        },
+        timeout=5.0,
+    )
+
+    response.raise_for_status()
+
+    return response.json()
+
+
 def run_agent(
     station_id: str,
     message: str,
@@ -67,11 +102,9 @@ def run_agent(
     return response.json()
 
 
-
-
-# -------------------------------------------------
-# UI helpers
-# -------------------------------------------------
+# =================================================
+# UI helper functions
+# =================================================
 
 
 def show_tool_activity(
@@ -101,7 +134,7 @@ def show_tool_activity(
 
             summary = event.get(
                 "summary",
-                "Completed successfully",
+                "Completed.",
             )
 
             status = event.get(
@@ -113,18 +146,47 @@ def show_tool_activity(
                 st.error(
                     f"{tool_name}: {summary}"
                 )
+
             else:
                 st.success(
                     f"{tool_name}: {summary}"
                 )
 
 
-# -------------------------------------------------
-# Header
-# -------------------------------------------------
+def show_severity(
+    severity: str,
+) -> None:
+    severity_lower = severity.lower()
+
+    if severity_lower == "critical":
+        st.error(
+            "🔴 Critical"
+        )
+
+    elif severity_lower == "high":
+        st.warning(
+            "🟠 High"
+        )
+
+    elif severity_lower == "medium":
+        st.info(
+            "🟡 Medium"
+        )
+
+    else:
+        st.success(
+            "🟢 Low"
+        )
 
 
-st.title("⚡ ChargeOps AI")
+# =================================================
+# Main header
+# =================================================
+
+
+st.title(
+    "⚡ ChargeOps AI"
+)
 
 st.caption(
     "Agentic EV Charging Intelligence "
@@ -132,52 +194,65 @@ st.caption(
 )
 
 
-# -------------------------------------------------
-# Sidebar — database-driven station selection
-# -------------------------------------------------
+# =================================================
+# Backend check
+# =================================================
+
+
+if not check_backend():
+    st.error(
+        "ChargeOps backend is unavailable."
+    )
+
+    st.info(
+        "Start FastAPI with: "
+        "`uvicorn app.main:app --reload`"
+    )
+
+    st.stop()
+
+
+# =================================================
+# Load stations
+# =================================================
+
+
+try:
+    stations = get_stations()
+
+except httpx.HTTPError as error:
+    st.error(
+        "Could not retrieve charging stations."
+    )
+
+    st.caption(
+        str(error)
+    )
+
+    st.stop()
+
+
+if not stations:
+    st.warning(
+        "No charging stations are available."
+    )
+
+    st.stop()
+
+
+# =================================================
+# Sidebar
+# =================================================
 
 
 with st.sidebar:
-    st.header("Station Context")
+    st.header(
+        "⚡ Station Context"
+    )
 
-    backend_online = check_backend()
-
-    if backend_online:
-        st.success(
-            "Backend connected"
-        )
-
-    else:
-        st.error(
-            "Backend unavailable"
-        )
-
-        st.stop()
-
-    try:
-        stations = get_stations()
-
-    except httpx.HTTPStatusError as error:
-        st.error(
-            "Could not retrieve stations "
-            f"({error.response.status_code})."
-        )
-
-        st.stop()
-
-    except httpx.HTTPError:
-        st.error(
-            "Could not connect to the station database API."
-        )
-
-        st.stop()
-
-    if not stations:
-        st.warning(
-            "No charging stations are available."
-        )
-
-        st.stop()
+    st.success(
+        "Backend connected"
+    )
 
     station_lookup = {
         (
@@ -189,7 +264,9 @@ with st.sidebar:
 
     selected_station_label = st.selectbox(
         "Charging Station",
-        options=list(station_lookup.keys()),
+        options=list(
+            station_lookup.keys()
+        ),
     )
 
     selected_station = station_lookup[
@@ -200,8 +277,16 @@ with st.sidebar:
         "station_id"
     ]
 
+    station_name = selected_station[
+        "name"
+    ]
+
     charger_model = selected_station[
         "charger_model"
+    ]
+
+    location = selected_station[
+        "location"
     ]
 
     latitude = selected_station[
@@ -210,10 +295,6 @@ with st.sidebar:
 
     longitude = selected_station[
         "longitude"
-    ]
-
-    location = selected_station[
-        "location"
     ]
 
     station_status = selected_station[
@@ -231,6 +312,10 @@ with st.sidebar:
     )
 
     st.write(
+        f"**Name:** {station_name}"
+    )
+
+    st.write(
         f"**Model:** {charger_model}"
     )
 
@@ -238,77 +323,177 @@ with st.sidebar:
         f"**Location:** {location}"
     )
 
-    st.write(
-        f"**Latitude:** {latitude:.6f}"
-    )
-
-    st.write(
-        f"**Longitude:** {longitude:.6f}"
+    st.caption(
+        f"{latitude:.6f}, "
+        f"{longitude:.6f}"
     )
 
     if station_status.lower() == "active":
         st.success(
-            "Status: Active"
+            "● Active"
         )
 
-    elif station_status.lower() == "maintenance":
+    elif (
+        station_status.lower()
+        == "maintenance"
+    ):
         st.warning(
-            "Status: Maintenance"
+            "● Maintenance"
         )
 
     else:
         st.info(
-            f"Status: {station_status.title()}"
+            f"● {station_status.title()}"
         )
 
     st.divider()
 
     if st.button(
-        "🔄 Refresh Stations"
+        "🔄 Refresh Data",
+        use_container_width=True,
     ):
         st.cache_data.clear()
         st.rerun()
 
 
-# -------------------------------------------------
+# =================================================
+# Load incidents for selected station
+# =================================================
+
+
+try:
+    incidents = get_incidents(
+        station_id
+    )
+
+except httpx.HTTPError:
+    incidents = []
+
+
+# =================================================
+# Main operational metrics
+# =================================================
+
+
+total_incidents = len(
+    incidents
+)
+
+open_incidents = sum(
+    incident["status"] == "open"
+    for incident in incidents
+)
+
+investigating_incidents = sum(
+    incident["status"]
+    == "investigating"
+    for incident in incidents
+)
+
+resolved_incidents = sum(
+    incident["status"]
+    == "resolved"
+    for incident in incidents
+)
+
+
+metric1, metric2, metric3, metric4 = (
+    st.columns(4)
+)
+
+with metric1:
+    st.metric(
+        "Total Incidents",
+        total_incidents,
+    )
+
+with metric2:
+    st.metric(
+        "Open",
+        open_incidents,
+    )
+
+with metric3:
+    st.metric(
+        "Investigating",
+        investigating_incidents,
+    )
+
+with metric4:
+    st.metric(
+        "Resolved",
+        resolved_incidents,
+    )
+
+
+st.divider()
+
+
+# =================================================
 # Tabs
-# -------------------------------------------------
+# =================================================
 
 
-tab_agent, tab_system = st.tabs(
+tab_agent, tab_incidents, tab_system = st.tabs(
     [
         "🤖 AI Agent",
-        "ℹ️ System",
+        "📋 Incidents",
+        "🏗 System",
     ]
 )
 
 
-# -------------------------------------------------
+# =================================================
 # Agent tab
-# -------------------------------------------------
+# =================================================
 
 
 with tab_agent:
     st.subheader(
-        "Ask ChargeOps"
+        "ChargeOps Operations Agent"
     )
 
     st.write(
-        "Ask operational questions about the "
-        "selected charging station. "
-        "The agent decides automatically whether "
-        "external tools are required."
+        "Ask questions about the selected "
+        "charging station, diagnose faults, "
+        "check current weather, or retrieve "
+        "previous incident history."
     )
 
     st.info(
-        f"Currently analyzing: "
-        f"{station_id} — {selected_station['name']}"
+        f"Selected station: "
+        f"**{station_id} — {station_name}**"
     )
 
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+    # ---------------------------------------------
+    # Station-specific chat history
+    # ---------------------------------------------
 
-    for message in st.session_state.messages:
+    if (
+        "chat_histories"
+        not in st.session_state
+    ):
+        st.session_state.chat_histories = {}
+
+    if (
+        station_id
+        not in st.session_state.chat_histories
+    ):
+        st.session_state.chat_histories[
+            station_id
+        ] = []
+
+    messages = (
+        st.session_state.chat_histories[
+            station_id
+        ]
+    )
+
+    # ---------------------------------------------
+    # Render chat
+    # ---------------------------------------------
+
+    for message in messages:
         with st.chat_message(
             message["role"]
         ):
@@ -316,7 +501,10 @@ with tab_agent:
                 message["content"]
             )
 
-            if message["role"] == "assistant":
+            if (
+                message["role"]
+                == "assistant"
+            ):
                 show_tool_activity(
                     message.get(
                         "tools",
@@ -328,12 +516,16 @@ with tab_agent:
                     ),
                 )
 
+    # ---------------------------------------------
+    # Chat input
+    # ---------------------------------------------
+
     prompt = st.chat_input(
-        "Ask about the charging station..."
+        "Ask ChargeOps about this station..."
     )
 
     if prompt:
-        st.session_state.messages.append(
+        messages.append(
             {
                 "role": "user",
                 "content": prompt,
@@ -382,7 +574,7 @@ with tab_agent:
                     trace,
                 )
 
-                st.session_state.messages.append(
+                messages.append(
                     {
                         "role": "assistant",
                         "content": answer,
@@ -391,15 +583,21 @@ with tab_agent:
                     }
                 )
 
-            except httpx.HTTPStatusError as error:
-                try:
-                    error_data = (
-                        error.response.json()
-                    )
+                # A diagnosis may have created
+                # a new incident.
+                st.cache_data.clear()
 
-                    detail = error_data.get(
-                        "detail",
-                        "Unknown backend error",
+            except (
+                httpx.HTTPStatusError
+            ) as error:
+                try:
+                    detail = (
+                        error.response
+                        .json()
+                        .get(
+                            "detail",
+                            "Unknown error",
+                        )
                     )
 
                 except ValueError:
@@ -415,7 +613,7 @@ with tab_agent:
 
             except httpx.HTTPError as error:
                 st.error(
-                    "Could not connect to the "
+                    "Could not connect to "
                     "ChargeOps backend."
                 )
 
@@ -424,75 +622,325 @@ with tab_agent:
                 )
 
 
-# -------------------------------------------------
+# =================================================
+# Incidents tab
+# =================================================
+
+
+with tab_incidents:
+    st.subheader(
+        "Incident Management"
+    )
+
+    st.write(
+        f"Operational incident history for "
+        f"**{station_id} — {station_name}**."
+    )
+
+    if not incidents:
+        st.info(
+            "No incidents have been recorded "
+            "for this station yet."
+        )
+
+    else:
+        status_filter = st.selectbox(
+            "Filter by status",
+            [
+                "All",
+                "Open",
+                "Investigating",
+                "Resolved",
+            ],
+        )
+
+        if status_filter == "All":
+            filtered_incidents = incidents
+
+        else:
+            filtered_incidents = [
+                incident
+                for incident in incidents
+                if incident["status"]
+                == status_filter.lower()
+            ]
+
+        st.caption(
+            f"Showing "
+            f"{len(filtered_incidents)} "
+            f"incident(s)"
+        )
+
+        for incident in filtered_incidents:
+            incident_id = incident["id"]
+
+            severity = incident[
+                "severity"
+            ]
+
+            status = incident[
+                "status"
+            ]
+
+            title = (
+                f"Incident #{incident_id} — "
+                f"{severity.upper()} — "
+                f"{status.upper()}"
+            )
+
+            with st.expander(
+                title,
+                expanded=False,
+            ):
+                col1, col2, col3, col4 = (
+                    st.columns(4)
+                )
+
+                with col1:
+                    st.metric(
+                        "Incident ID",
+                        f"#{incident_id}",
+                    )
+
+                with col2:
+                    st.metric(
+                        "Category",
+                        incident[
+                            "category"
+                        ].title(),
+                    )
+
+                with col3:
+                    st.metric(
+                        "Confidence",
+                        (
+                            f"{incident['confidence']:.0%}"
+                        ),
+                    )
+
+                with col4:
+                    st.metric(
+                        "Status",
+                        status.title(),
+                    )
+
+                show_severity(
+                    severity
+                )
+
+                st.markdown(
+                    "### Reported Issue"
+                )
+
+                st.write(
+                    incident["issue"]
+                )
+
+                st.markdown(
+                    "### AI Diagnostic Summary"
+                )
+
+                st.write(
+                    incident["summary"]
+                )
+
+                st.markdown(
+                    "### Likely Causes"
+                )
+
+                causes = incident.get(
+                    "likely_causes",
+                    [],
+                )
+
+                if causes:
+                    for cause in causes:
+                        st.write(
+                            f"- {cause}"
+                        )
+
+                else:
+                    st.caption(
+                        "No likely causes recorded."
+                    )
+
+                st.markdown(
+                    "### Diagnostic Steps"
+                )
+
+                steps = incident.get(
+                    "diagnostic_steps",
+                    [],
+                )
+
+                if steps:
+                    for step in steps:
+                        step_number = step.get(
+                            "step",
+                            "?",
+                        )
+
+                        action = step.get(
+                            "action",
+                            "",
+                        )
+
+                        st.write(
+                            f"**{step_number}.** "
+                            f"{action}"
+                        )
+
+                else:
+                    st.caption(
+                        "No diagnostic steps recorded."
+                    )
+
+                if incident.get(
+                    "needs_human_escalation"
+                ):
+                    st.warning(
+                        "⚠️ Human escalation recommended"
+                    )
+
+                created_at = incident.get(
+                    "created_at"
+                )
+
+                if created_at:
+                    st.caption(
+                        f"Created: {created_at}"
+                    )
+
+                st.divider()
+
+                st.markdown(
+                    "### Incident Lifecycle"
+                )
+
+                valid_statuses = [
+                    "open",
+                    "investigating",
+                    "resolved",
+                ]
+
+                current_index = (
+                    valid_statuses.index(
+                        status
+                    )
+                    if status
+                    in valid_statuses
+                    else 0
+                )
+
+                new_status = st.selectbox(
+                    "Status",
+                    valid_statuses,
+                    index=current_index,
+                    format_func=lambda value: (
+                        value.title()
+                    ),
+                    key=(
+                        f"incident_status_"
+                        f"{incident_id}"
+                    ),
+                )
+
+                if st.button(
+                    "Update Status",
+                    key=(
+                        f"update_incident_"
+                        f"{incident_id}"
+                    ),
+                ):
+                    if (
+                        new_status
+                        == status
+                    ):
+                        st.info(
+                            "Incident already has "
+                            "this status."
+                        )
+
+                    else:
+                        try:
+                            update_incident_status(
+                                incident_id=incident_id,
+                                status=new_status,
+                            )
+
+                            st.success(
+                                f"Incident "
+                                f"#{incident_id} "
+                                f"updated to "
+                                f"{new_status.title()}."
+                            )
+
+                            st.cache_data.clear()
+
+                            st.rerun()
+
+                        except (
+                            httpx.HTTPError
+                        ) as error:
+                            st.error(
+                                "Could not update "
+                                "incident status."
+                            )
+
+                            st.caption(
+                                str(error)
+                            )
+
+
+# =================================================
 # System tab
-# -------------------------------------------------
+# =================================================
 
 
 with tab_system:
     st.subheader(
-        "Current Architecture"
+        "ChargeOps Architecture"
     )
 
     st.code(
         """
 User
   ↓
-Streamlit
+Streamlit Operations Dashboard
   │
-  ├── GET /stations
+  ├── Station Inventory
   │       ↓
   │    PostgreSQL
   │
-  └── POST /agent/run
+  ├── Incident Management
+  │       ↓
+  │    PostgreSQL
+  │
+  └── ChargeOps Agent
           ↓
-     ChargeOps Agent
-          ↓
-     OpenAI Tool Decision
-        ├── Direct Answer
-        ├── Weather Tool
-        ├── Diagnostic Tool
-        └── Multiple Tools
+      Tool Orchestration
+          │
+          ├── get_station_details
+          │       ↓
+          │    PostgreSQL
+          │
+          ├── get_recent_incidents
+          │       ↓
+          │    PostgreSQL
+          │
+          ├── get_station_weather
+          │       ↓
+          │    External Weather API
+          │
+          └── diagnose_charging_issue
+                  ↓
+               OpenAI
+                  ↓
+             Save Incident
+                  ↓
+              PostgreSQL
         """
     )
-
-    st.subheader(
-        "Data Layer"
-    )
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.metric(
-            "Stations",
-            len(stations),
-        )
-
-    with col2:
-        active_count = sum(
-            station["status"].lower()
-            == "active"
-            for station in stations
-        )
-
-        st.metric(
-            "Active",
-            active_count,
-        )
-
-    with col3:
-        maintenance_count = sum(
-            station["status"].lower()
-            == "maintenance"
-            for station in stations
-        )
-
-        st.metric(
-            "Maintenance",
-            maintenance_count,
-        )
-
-    st.divider()
 
     st.subheader(
         "Station Inventory"
@@ -507,72 +955,70 @@ Streamlit
     st.divider()
 
     st.subheader(
-        "Agent Capabilities"
+        "Current Technology Stack"
     )
 
-    col1, col2 = st.columns(2)
+    stack1, stack2, stack3 = (
+        st.columns(3)
+    )
 
-    with col1:
+    with stack1:
         st.markdown(
             """
-### 🌦 Weather Tool
+### AI
 
-Retrieves real current weather data for
-the selected charging station.
-
-Used for:
-
-- Temperature
-- Rain
-- Wind
-- Environmental conditions
-- Weather-related charger issues
+- OpenAI Responses API
+- Structured Outputs
+- Function Calling
+- Multi-tool Agent
+- Agent State
             """
         )
 
-    with col2:
+    with stack2:
         st.markdown(
             """
-### 🔧 Diagnostic Tool
+### Backend
 
-Performs structured analysis of EV
-charging faults.
+- Python
+- FastAPI
+- Pydantic
+- SQLAlchemy Async
+- PostgreSQL
+            """
+        )
 
-Used for:
+    with stack3:
+        st.markdown(
+            """
+### Platform
 
-- Overheating
-- Network failures
-- Hardware faults
-- Power problems
-- Payment issues
-- Troubleshooting
+- Streamlit
+- Docker
+- Pytest
+- Ruff
+- Git / GitHub
             """
         )
 
     st.divider()
 
     st.subheader(
-        "Current Project Features"
+        "Agent Tools"
     )
 
     st.markdown(
         """
-- FastAPI backend
-- Streamlit frontend
-- PostgreSQL database
-- Dockerized PostgreSQL
-- Async SQLAlchemy
-- OpenAI Responses API
-- Structured AI outputs
-- Multi-tool agent
-- Automatic tool selection
-- Real-time weather integration
-- Structured EV fault diagnosis
-- Agent activity trace
-- Database-driven station selection
-- Pydantic validation
-- Error handling
-- Automated testing
-- Ruff code quality checks
+**1. `get_station_details`**  
+Retrieves trusted station metadata from PostgreSQL.
+
+**2. `get_recent_incidents`**  
+Retrieves historical operational incidents.
+
+**3. `get_station_weather`**  
+Retrieves live external weather conditions.
+
+**4. `diagnose_charging_issue`**  
+Performs structured fault analysis and automatically records incidents.
         """
     )
