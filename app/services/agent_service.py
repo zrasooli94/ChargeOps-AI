@@ -20,6 +20,10 @@ from app.core.config import settings
 from app.core.openai_client import client
 from app.models.station import Station
 from app.schemas.agent import ToolTrace
+from app.services.incident_service import (
+    create_incident,
+    get_recent_incidents,
+)
 from app.services.llm_service import (
     LLMServiceError,
     analyze_charging_issue,
@@ -44,18 +48,31 @@ class DiagnosticToolArguments(BaseModel):
     )
 
 
-# -------------------------------------------------
-# Tool definitions
-# -------------------------------------------------
-
-
 STATION_TOOL: FunctionToolParam = {
     "type": "function",
     "name": "get_station_details",
     "description": (
         "Retrieve trusted information about the selected EV charging "
-        "station from the ChargeOps PostgreSQL database. "
-        "Use this before performing station-specific operational analysis."
+        "station from the ChargeOps PostgreSQL database."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": False,
+    },
+    "strict": True,
+}
+
+
+INCIDENT_HISTORY_TOOL: FunctionToolParam = {
+    "type": "function",
+    "name": "get_recent_incidents",
+    "description": (
+        "Retrieve recent recorded incidents for the selected charging "
+        "station. Use this when the user asks about previous faults, "
+        "incident history, repeated problems, recurring issues, "
+        "or similar past failures."
     ),
     "parameters": {
         "type": "object",
@@ -72,8 +89,8 @@ WEATHER_TOOL: FunctionToolParam = {
     "name": "get_station_weather",
     "description": (
         "Retrieve current real-world weather for the selected station. "
-        "Use only when current temperature, precipitation, wind, "
-        "weather, or environmental conditions are relevant."
+        "Use only when current weather or environmental conditions "
+        "are relevant."
     ),
     "parameters": {
         "type": "object",
@@ -89,10 +106,9 @@ DIAGNOSTIC_TOOL: FunctionToolParam = {
     "type": "function",
     "name": "diagnose_charging_issue",
     "description": (
-        "Perform structured technical diagnosis of an EV charging fault. "
-        "Use when the user reports charger failures, errors, overheating, "
-        "network problems, power problems, payment problems, "
-        "or requests troubleshooting."
+        "Perform structured technical diagnosis of an EV charging "
+        "fault. A successful diagnosis is automatically recorded "
+        "as an incident by the ChargeOps application."
     ),
     "parameters": {
         "type": "object",
@@ -100,8 +116,7 @@ DIAGNOSTIC_TOOL: FunctionToolParam = {
             "issue": {
                 "type": "string",
                 "description": (
-                    "A concise description of the charging issue "
-                    "requiring diagnosis."
+                    "The charging issue requiring diagnosis."
                 ),
             }
         },
@@ -116,92 +131,75 @@ DIAGNOSTIC_TOOL: FunctionToolParam = {
 
 TOOLS: list[FunctionToolParam] = [
     STATION_TOOL,
+    INCIDENT_HISTORY_TOOL,
     WEATHER_TOOL,
     DIAGNOSTIC_TOOL,
 ]
-
-
-# -------------------------------------------------
-# Agent instructions
-# -------------------------------------------------
 
 
 AGENT_INSTRUCTIONS = """
 You are ChargeOps AI, an intelligent operations agent for EV charging
 infrastructure.
 
-You have three tools:
+AVAILABLE TOOLS:
 
 1. get_station_details
-   Retrieves trusted station information from the PostgreSQL database.
+   Retrieves trusted station data from PostgreSQL.
 
-2. get_station_weather
-   Retrieves current weather for the station.
+2. get_recent_incidents
+   Retrieves recent stored incidents for the station.
 
-3. diagnose_charging_issue
-   Performs structured EV charger fault diagnosis.
+3. get_station_weather
+   Retrieves current real-world weather.
 
-TOOL SELECTION RULES:
+4. diagnose_charging_issue
+   Performs structured technical fault diagnosis. Successful diagnoses
+   are automatically saved by the application as incidents.
 
-GENERAL QUESTIONS
+TOOL ROUTING:
 
-If the user asks a general EV charging knowledge question such as:
-"What is OCPP?"
+GENERAL KNOWLEDGE
+For questions like "What is OCPP?", answer directly with no tools.
 
-Answer directly without using tools.
+STATION INFORMATION
+For questions specifically about the selected station:
+- Call get_station_details first.
 
-STATION-SPECIFIC QUESTIONS
+INCIDENT HISTORY
+For questions about previous faults, recurring problems, past incidents,
+or whether the station has experienced similar issues:
+1. Call get_station_details.
+2. Call get_recent_incidents.
 
-If the user asks anything specifically about the selected station,
-first call get_station_details.
+DIAGNOSIS
+For station-specific troubleshooting:
+1. Call get_station_details.
+2. Call diagnose_charging_issue.
 
-Do not assume the charger model, location, coordinates, or station status.
+WEATHER
+If the user explicitly asks about current weather or whether current
+weather could contribute:
+1. Call get_station_details.
+2. Call get_station_weather.
 
-Those values must come from get_station_details.
-
-DIAGNOSTIC QUESTIONS
-
-For a station-specific charger fault:
-
-1. Call get_station_details first.
-2. Then call diagnose_charging_issue.
-
-WEATHER QUESTIONS
-
-If the user explicitly asks about current weather, temperature,
-rain, wind, environmental conditions, or whether weather could be
-contributing to a charging problem:
-
-1. Call get_station_details first.
-2. Then call get_station_weather.
-
-WEATHER + DIAGNOSTIC QUESTIONS
-
-If the user asks both for troubleshooting and whether current
-weather could be contributing:
-
+WEATHER + DIAGNOSIS
+If troubleshooting AND current weather are requested:
 1. Call get_station_details.
 2. Call get_station_weather.
 3. Call diagnose_charging_issue.
 
-Do not use the weather tool merely because a charger reports
-an overheating or over-temperature fault.
+Do not call the weather tool merely because an over-temperature fault
+exists.
 
 IMPORTANT:
-
 - Never invent station information.
 - Never invent current weather.
-- PostgreSQL station data is trusted application data.
-- Base conclusions on actual tool results.
-- Do not claim a tool was used unless it was executed.
-- Clearly state uncertainty when evidence is insufficient.
-- Give practical and technically accurate answers.
+- Never invent incident history.
+- Treat PostgreSQL results as trusted application data.
+- Base conclusions on real tool results.
+- Clearly state uncertainty.
+- Give practical and technically accurate responses.
 """
-
-
-# -------------------------------------------------
-# Tool executors
-# -------------------------------------------------
 
 
 async def execute_station_tool(
@@ -221,15 +219,13 @@ async def execute_station_tool(
         result = {
             "found": False,
             "station_id": station_id,
-            "message": "Station not found in ChargeOps database.",
         }
 
         trace = ToolTrace(
             tool="get_station_details",
             status="error",
             summary=(
-                f"Station {station_id} was not found "
-                "in PostgreSQL."
+                f"Station {station_id} not found."
             ),
         )
 
@@ -260,6 +256,53 @@ async def execute_station_tool(
     return result, station, trace
 
 
+async def execute_incident_history_tool(
+    session: AsyncSession,
+    station: Station,
+) -> tuple[
+    dict,
+    ToolTrace,
+]:
+    incidents = await get_recent_incidents(
+        session=session,
+        station_id=station.station_id,
+        limit=10,
+    )
+
+    items = [
+        {
+            "id": incident.id,
+            "issue": incident.issue,
+            "category": incident.category,
+            "severity": incident.severity,
+            "confidence": incident.confidence,
+            "summary": incident.summary,
+            "status": incident.status,
+            "created_at": (
+                incident.created_at.isoformat()
+            ),
+        }
+        for incident in incidents
+    ]
+
+    result = {
+        "station_id": station.station_id,
+        "count": len(items),
+        "incidents": items,
+    }
+
+    trace = ToolTrace(
+        tool="get_recent_incidents",
+        status="success",
+        summary=(
+            f"Retrieved {len(items)} recent "
+            f"incident(s) for {station.station_id}."
+        ),
+    )
+
+    return result, trace
+
+
 async def execute_weather_tool(
     station: Station,
 ) -> tuple[
@@ -273,7 +316,6 @@ async def execute_weather_tool(
 
     result = {
         "station_id": station.station_id,
-        "location": station.location,
         "observed_at": observed_at.isoformat(),
         "weather": weather.model_dump(),
     }
@@ -292,6 +334,7 @@ async def execute_weather_tool(
 
 
 async def execute_diagnostic_tool(
+    session: AsyncSession,
     station: Station,
     issue: str,
 ) -> tuple[
@@ -311,24 +354,30 @@ async def execute_diagnostic_tool(
         context
     )
 
+    incident = await create_incident(
+        session=session,
+        station_id=station.station_id,
+        issue=issue,
+        analysis=analysis,
+    )
+
     result = analysis.model_dump()
+
+    result["incident_id"] = incident.id
+    result["incident_status"] = incident.status
 
     trace = ToolTrace(
         tool="diagnose_charging_issue",
         status="success",
         summary=(
-            f"{analysis.category} issue | "
+            f"Incident #{incident.id} recorded | "
+            f"{analysis.category} | "
             f"severity: {analysis.severity} | "
             f"confidence: {analysis.confidence:.0%}"
         ),
     )
 
     return result, trace
-
-
-# -------------------------------------------------
-# Agent
-# -------------------------------------------------
 
 
 async def run_agent(
@@ -347,9 +396,9 @@ async def run_agent(
             "content": (
                 "Trusted application context:\n"
                 f"Selected station ID: {station_id}\n\n"
-                "Important: Only the station ID is provided here. "
-                "Use get_station_details whenever station metadata "
-                "is required.\n\n"
+                "Only the station ID is supplied directly. "
+                "Retrieve trusted station information using tools "
+                "when required.\n\n"
                 "User request:\n"
                 f"{message}"
             ),
@@ -375,7 +424,7 @@ async def run_agent(
             input=input_items,
         )
 
-        for _ in range(8):
+        for _ in range(10):
             for item in response.output:
                 input_items.append(
                     cast(
@@ -409,10 +458,6 @@ async def run_agent(
                     station_id,
                 )
 
-                # -----------------------------------------
-                # PostgreSQL station tool
-                # -----------------------------------------
-
                 if tool_call.name == "get_station_details":
                     (
                         tool_result,
@@ -423,16 +468,36 @@ async def run_agent(
                         station_id=station_id,
                     )
 
-                # -----------------------------------------
-                # Weather tool
-                # -----------------------------------------
+                elif tool_call.name == "get_recent_incidents":
+                    if station_context is None:
+                        tool_result = {
+                            "error": (
+                                "Station details must be loaded first."
+                            )
+                        }
+
+                        tool_trace = ToolTrace(
+                            tool="get_recent_incidents",
+                            status="error",
+                            summary=(
+                                "Station context is not loaded."
+                            ),
+                        )
+
+                    else:
+                        (
+                            tool_result,
+                            tool_trace,
+                        ) = await execute_incident_history_tool(
+                            session=session,
+                            station=station_context,
+                        )
 
                 elif tool_call.name == "get_station_weather":
                     if station_context is None:
                         tool_result = {
                             "error": (
-                                "Station details are not loaded. "
-                                "Call get_station_details first."
+                                "Station details must be loaded first."
                             )
                         }
 
@@ -440,8 +505,7 @@ async def run_agent(
                             tool="get_station_weather",
                             status="error",
                             summary=(
-                                "Station context must be loaded "
-                                "before weather can be retrieved."
+                                "Station context is not loaded."
                             ),
                         )
 
@@ -450,19 +514,14 @@ async def run_agent(
                             tool_result,
                             tool_trace,
                         ) = await execute_weather_tool(
-                            station=station_context,
+                            station_context
                         )
-
-                # -----------------------------------------
-                # Diagnostic tool
-                # -----------------------------------------
 
                 elif tool_call.name == "diagnose_charging_issue":
                     if station_context is None:
                         tool_result = {
                             "error": (
-                                "Station details are not loaded. "
-                                "Call get_station_details first."
+                                "Station details must be loaded first."
                             )
                         }
 
@@ -470,8 +529,7 @@ async def run_agent(
                             tool="diagnose_charging_issue",
                             status="error",
                             summary=(
-                                "Station context must be loaded "
-                                "before diagnosis."
+                                "Station context is not loaded."
                             ),
                         )
 
@@ -486,6 +544,7 @@ async def run_agent(
                             tool_result,
                             tool_trace,
                         ) = await execute_diagnostic_tool(
+                            session=session,
                             station=station_context,
                             issue=arguments.issue,
                         )
@@ -505,20 +564,18 @@ async def run_agent(
                     tool_trace
                 )
 
-                tool_output: ResponseInputItemParam = cast(
-                    ResponseInputItemParam,
-                    {
-                        "type": "function_call_output",
-                        "call_id": tool_call.call_id,
-                        "output": json.dumps(
-                            tool_result,
-                            default=str,
-                        ),
-                    },
-                )
-
                 input_items.append(
-                    tool_output
+                    cast(
+                        ResponseInputItemParam,
+                        {
+                            "type": "function_call_output",
+                            "call_id": tool_call.call_id,
+                            "output": json.dumps(
+                                tool_result,
+                                default=str,
+                            ),
+                        },
+                    )
                 )
 
             response = await client.responses.create(
@@ -531,8 +588,7 @@ async def run_agent(
             )
 
         raise AgentServiceError(
-            "Agent exceeded the maximum number "
-            "of tool iterations."
+            "Agent exceeded maximum tool iterations."
         )
 
     except AgentServiceError:
