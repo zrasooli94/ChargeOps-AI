@@ -66,8 +66,23 @@ def test_analyze_success() -> None:
     mock_result = ChargingIssueAnalysis(
         category="network",
         severity="high",
+        confidence=0.95,
         summary="The charger cannot connect to the OCPP backend.",
-        recommended_action="Check backend connectivity and configuration.",
+        likely_causes=[
+            "Backend connectivity failure",
+            "Incorrect OCPP configuration",
+        ],
+        diagnostic_steps=[
+            {
+                "step": 1,
+                "action": "Verify the OCPP endpoint.",
+            },
+            {
+                "step": 2,
+                "action": "Test backend connectivity.",
+            },
+        ],
+        needs_human_escalation=False,
     )
 
     with patch(
@@ -84,6 +99,8 @@ def test_analyze_success() -> None:
     assert response.status_code == 200
     assert response.json()["category"] == "network"
     assert response.json()["severity"] == "high"
+    assert response.json()["confidence"] == 0.95
+    assert response.json()["needs_human_escalation"] is False
 
 
 def test_analyze_rejects_empty_message() -> None:
