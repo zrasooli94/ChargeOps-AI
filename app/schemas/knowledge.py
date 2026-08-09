@@ -1,4 +1,10 @@
-from pydantic import BaseModel, Field
+from datetime import datetime
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+)
 
 
 class KnowledgeSearchRequest(BaseModel):
@@ -30,3 +36,19 @@ class KnowledgeSearchResponse(BaseModel):
     results: list[
         KnowledgeSearchResult
     ]
+
+
+class KnowledgeDocumentResponse(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+    id: int
+    document_key: str
+    title: str
+    category: str
+    source_filename: str
+    media_type: str
+    status: str
+    chunk_count: int
+    created_at: datetime

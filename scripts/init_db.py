@@ -2,19 +2,10 @@ import asyncio
 
 from sqlalchemy import text
 
-from app.core.database import Base, engine
-from app.models.incident import Incident
-from app.models.knowledge import KnowledgeChunk
-from app.models.station import Station
+from app.core.database import engine
 
 
 async def main() -> None:
-    _ = (
-        Station,
-        Incident,
-        KnowledgeChunk,
-    )
-
     async with engine.begin() as connection:
         await connection.execute(
             text(
@@ -22,12 +13,10 @@ async def main() -> None:
             )
         )
 
-        await connection.run_sync(
-            Base.metadata.create_all
-        )
-
     print(
-        "Database tables and vector extension created."
+        "Database extensions ready. "
+        "Use `python -m alembic upgrade head` "
+        "for schema migrations."
     )
 
 
