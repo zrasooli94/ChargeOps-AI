@@ -44,6 +44,7 @@ packaging==26.3
 pandas==3.0.5
 parso==0.8.7
 pexpect==4.9.0
+pgvector==0.5.0
 pillow==12.3.0
 platformdirs==4.11.1
 pluggy==1.6.0
