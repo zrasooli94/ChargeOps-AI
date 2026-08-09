@@ -1,0 +1,45 @@
+[
+  {
+    "name": "ocpp connectivity",
+    "query": "The charger keeps disconnecting from the central management backend.",
+    "expected_document_keys": [
+      "ocpp-connectivity-001",
+      "charger-offline-001"
+    ],
+    "top_k": 5
+  },
+  {
+    "name": "connector overheating",
+    "query": "The charging connector and cable become extremely hot during charging.",
+    "expected_document_keys": [
+      "connector-heating-001",
+      "thermal-management-001"
+    ],
+    "top_k": 5
+  },
+  {
+    "name": "ambient heat",
+    "query": "Could very high outside temperature contribute to charger overheating?",
+    "expected_document_keys": [
+      "weather-impact-001",
+      "thermal-management-001"
+    ],
+    "top_k": 5
+  },
+  {
+    "name": "input power",
+    "query": "The charger reports unstable voltage and phase imbalance.",
+    "expected_document_keys": [
+      "power-input-001"
+    ],
+    "top_k": 5
+  },
+  {
+    "name": "payment failure",
+    "query": "Customers cannot authorize payment even though charging hardware appears healthy.",
+    "expected_document_keys": [
+      "payment-terminal-001"
+    ],
+    "top_k": 5
+  }
+]

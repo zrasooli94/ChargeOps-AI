@@ -12,6 +12,7 @@ from fastapi import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.schemas.knowledge import (
     KnowledgeDocumentResponse,
@@ -48,10 +49,28 @@ async def knowledge_search(
     ],
 ) -> KnowledgeSearchResponse:
     try:
+
         results = await search_knowledge(
             session=session,
             query=request.query,
             limit=request.limit,
+            min_similarity=(
+                request.min_similarity
+                if request.min_similarity
+                is not None
+                else settings.knowledge_min_similarity
+            ),
+            category=request.category,
+            document_id=request.document_id,
+            max_chunks_per_document=(
+                request.max_chunks_per_document
+                if request.max_chunks_per_document
+                is not None
+                else (
+                    settings
+                    .knowledge_max_chunks_per_document
+                )
+            ),
         )
 
         return KnowledgeSearchResponse(

@@ -19,6 +19,28 @@ class KnowledgeSearchRequest(BaseModel):
         le=20,
     )
 
+    category: str | None = Field(
+        default=None,
+        max_length=100,
+    )
+
+    document_id: int | None = Field(
+        default=None,
+        ge=1,
+    )
+
+    min_similarity: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+    )
+
+    max_chunks_per_document: int | None = Field(
+        default=None,
+        ge=1,
+        le=10,
+    )
+
 
 class KnowledgeSearchResult(BaseModel):
     id: int
@@ -28,6 +50,14 @@ class KnowledgeSearchResult(BaseModel):
     source: str
     content: str
     similarity: float
+
+    citation_id: str = ""
+
+    knowledge_document_id: int | None = None
+
+    chunk_index: int | None = None
+
+    page_number: int | None = None
 
 
 class KnowledgeSearchResponse(BaseModel):

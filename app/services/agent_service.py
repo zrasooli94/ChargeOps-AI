@@ -65,6 +65,16 @@ class KnowledgeToolArguments(BaseModel):
         max_length=3000,
     )
 
+    category: str | None = Field(
+        default=None,
+        max_length=100,
+    )
+
+    document_id: int | None = Field(
+        default=None,
+        ge=1,
+    )
+
 
 # =================================================
 # Tool definitions
@@ -125,14 +135,14 @@ WEATHER_TOOL: FunctionToolParam = {
 
 
 KNOWLEDGE_TOOL: FunctionToolParam = {
+
     "type": "function",
     "name": "search_knowledge_base",
     "description": (
-        "Search the ChargeOps technical EV charging knowledge base using "
-        "semantic vector search. Use this for technical troubleshooting "
-        "guidance, charger failure modes, operational procedures, "
-        "network issues, power faults, thermal faults, payment faults, "
-        "environmental effects, and related EV charging knowledge."
+        "Search the ChargeOps technical EV charging knowledge base "
+        "using semantic vector retrieval. Use for technical evidence, "
+        "manual content, troubleshooting procedures, failure modes, "
+        "and charger operational guidance."
     ),
     "parameters": {
         "type": "object",
@@ -140,13 +150,35 @@ KNOWLEDGE_TOOL: FunctionToolParam = {
             "query": {
                 "type": "string",
                 "description": (
-                    "A concise technical search query describing the "
-                    "information or charging problem to retrieve."
+                    "Focused semantic search query "
+                    "describing the technical information needed."
                 ),
-            }
+            },
+            "category": {
+                "type": [
+                    "string",
+                    "null",
+                ],
+                "description": (
+                    "Optional knowledge category filter, "
+                    "or null when no category restriction is required."
+                ),
+            },
+            "document_id": {
+                "type": [
+                    "integer",
+                    "null",
+                ],
+                "description": (
+                    "Optional specific uploaded knowledge document ID, "
+                    "or null to search across all documents."
+                ),
+            },
         },
         "required": [
             "query",
+            "category",
+            "document_id",
         ],
         "additionalProperties": False,
     },
@@ -297,6 +329,27 @@ IMPORTANT:
 - Do not call the weather tool merely because an over-temperature
   fault exists.
 - Give practical and technically accurate responses.
+
+KNOWLEDGE CITATIONS:
+
+When search_knowledge_base returns evidence, each result has a citation
+identifier such as KB1, KB2, or KB3.
+
+When your final answer relies on retrieved technical knowledge:
+
+- Cite the supporting claim using [KB1], [KB2], etc.
+- Only use citation identifiers that were actually returned by the tool.
+- Never invent citation identifiers.
+- Prefer the strongest and most relevant sources.
+- Do not cite a source for claims it does not support.
+- At the end of the answer, include a short "Knowledge sources" section
+  listing the citation ID and title used.
+- Clearly distinguish retrieved evidence from your own technical inference.
+
+If no knowledge result passes the retrieval threshold, say that the
+knowledge base did not return sufficiently relevant evidence rather than
+pretending evidence was found.
+
 """
 
 
@@ -455,6 +508,8 @@ async def execute_weather_tool(
 async def execute_knowledge_tool(
     session: AsyncSession,
     query: str,
+    category: str | None = None,
+    document_id: int | None = None,
 ) -> tuple[
     dict,
     list[KnowledgeSearchResult],
@@ -463,7 +518,16 @@ async def execute_knowledge_tool(
     results = await search_knowledge(
         session=session,
         query=query,
-        limit=4,
+        limit=5,
+        min_similarity=(
+            settings.knowledge_min_similarity
+        ),
+        category=category,
+        document_id=document_id,
+        max_chunks_per_document=(
+            settings
+            .knowledge_max_chunks_per_document
+        ),
     )
 
     result_items = [
@@ -473,13 +537,16 @@ async def execute_knowledge_tool(
 
     result = {
         "query": query,
+        "category_filter": category,
+        "document_filter": document_id,
         "count": len(results),
         "results": result_items,
     }
 
     if results:
-        titles = ", ".join(
+        sources = ", ".join(
             (
+                f"[{item.citation_id}] "
                 f"{item.title} "
                 f"({item.similarity:.0%})"
             )
@@ -487,13 +554,15 @@ async def execute_knowledge_tool(
         )
 
         summary = (
-            f"Retrieved {len(results)} knowledge "
-            f"result(s): {titles}"
+            f"Retrieved {len(results)} "
+            f"qualified knowledge result(s): "
+            f"{sources}"
         )
 
     else:
         summary = (
-            "No relevant knowledge results were found."
+            "No knowledge chunks met the "
+            "retrieval quality threshold."
         )
 
     trace = ToolTrace(
@@ -502,7 +571,11 @@ async def execute_knowledge_tool(
         summary=summary,
     )
 
-    return result, results, trace
+    return (
+        result,
+        results,
+        trace,
+    )
 
 
 # =================================================
@@ -524,24 +597,24 @@ async def execute_diagnostic_tool(
     if knowledge_context:
         knowledge_text = "\n\n".join(
             (
-                f"[Knowledge {index}]\n"
+                f"[{item.citation_id}]\n"
                 f"Title: {item.title}\n"
                 f"Category: {item.category}\n"
                 f"Source: {item.source}\n"
-                f"Similarity: {item.similarity:.4f}\n"
+                f"Page: "
+                f"{item.page_number or 'Unknown'}\n"
+                f"Similarity: "
+                f"{item.similarity:.4f}\n"
                 f"Content: {item.content}"
             )
-            for index, item
-            in enumerate(
-                knowledge_context,
-                start=1,
-            )
+            for item
+            in knowledge_context
         )
 
     else:
         knowledge_text = (
-            "No relevant ChargeOps knowledge "
-            "was retrieved."
+            "No knowledge chunks passed the "
+            "retrieval quality threshold."
         )
 
     context = (
@@ -580,11 +653,20 @@ async def execute_diagnostic_tool(
 
     result["knowledge_sources"] = [
         {
+            "citation_id": (
+                item.citation_id
+            ),
             "title": item.title,
             "source": item.source,
-            "similarity": item.similarity,
+            "page_number": (
+                item.page_number
+            ),
+            "similarity": (
+                item.similarity
+            ),
         }
-        for item in knowledge_context
+        for item
+        in knowledge_context
     ]
 
     trace = ToolTrace(
@@ -802,6 +884,10 @@ async def run_agent(
                     ) = await execute_knowledge_tool(
                         session=session,
                         query=arguments.query,
+                        category=arguments.category,
+                        document_id=(
+                            arguments.document_id
+                        ),
                     )
 
                 # =====================================
