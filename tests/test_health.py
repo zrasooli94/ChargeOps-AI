@@ -18,7 +18,7 @@ def test_health_check() -> None:
 
 def test_chat_llm_error() -> None:
     with patch(
-        "app.main.generate_response",
+        "app.api.chat.generate_response",
         side_effect=LLMServiceError("Failed to generate an AI response."),
     ):
         response = client.post(
