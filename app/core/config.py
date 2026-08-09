@@ -14,5 +14,9 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    database_url: str = (
+        "postgresql+psycopg://chargeops:chargeops@localhost:5432/chargeops"
+    )
+
 
 settings = Settings()

@@ -19,6 +19,11 @@ st.set_page_config(
 )
 
 
+# -------------------------------------------------
+# Backend functions
+# -------------------------------------------------
+
+
 def check_backend() -> bool:
     try:
         response = httpx.get(
@@ -30,6 +35,18 @@ def check_backend() -> bool:
 
     except httpx.HTTPError:
         return False
+
+
+@st.cache_data(ttl=30)
+def get_stations() -> list[dict]:
+    response = httpx.get(
+        f"{API_BASE_URL}/stations",
+        timeout=5.0,
+    )
+
+    response.raise_for_status()
+
+    return response.json()
 
 
 def run_agent(
@@ -54,6 +71,11 @@ def run_agent(
     response.raise_for_status()
 
     return response.json()
+
+
+# -------------------------------------------------
+# UI helpers
+# -------------------------------------------------
 
 
 def show_tool_activity(
@@ -91,6 +113,11 @@ def show_tool_activity(
             )
 
 
+# -------------------------------------------------
+# Header
+# -------------------------------------------------
+
+
 st.title("⚡ ChargeOps AI")
 
 st.caption(
@@ -100,41 +127,16 @@ st.caption(
 
 
 # -------------------------------------------------
-# Sidebar
+# Sidebar — database-driven station selection
 # -------------------------------------------------
+
 
 with st.sidebar:
     st.header("Station Context")
 
-    station_id = st.text_input(
-        "Station ID",
-        value="KL-205",
-    )
+    backend_online = check_backend()
 
-    charger_model = st.text_input(
-        "Charger Model",
-        value="ABB Terra 54",
-    )
-
-    latitude = st.number_input(
-        "Latitude",
-        min_value=-90.0,
-        max_value=90.0,
-        value=3.139000,
-        format="%.6f",
-    )
-
-    longitude = st.number_input(
-        "Longitude",
-        min_value=-180.0,
-        max_value=180.0,
-        value=101.686900,
-        format="%.6f",
-    )
-
-    st.divider()
-
-    if check_backend():
+    if backend_online:
         st.success(
             "Backend connected"
         )
@@ -144,10 +146,128 @@ with st.sidebar:
             "Backend unavailable"
         )
 
+        st.stop()
+
+    try:
+        stations = get_stations()
+
+    except httpx.HTTPStatusError as error:
+        st.error(
+            "Could not retrieve stations "
+            f"({error.response.status_code})."
+        )
+
+        st.stop()
+
+    except httpx.HTTPError:
+        st.error(
+            "Could not connect to the station database API."
+        )
+
+        st.stop()
+
+    if not stations:
+        st.warning(
+            "No charging stations are available."
+        )
+
+        st.stop()
+
+    station_lookup = {
+        (
+            f"{station['station_id']} — "
+            f"{station['name']}"
+        ): station
+        for station in stations
+    }
+
+    selected_station_label = st.selectbox(
+        "Charging Station",
+        options=list(station_lookup.keys()),
+    )
+
+    selected_station = station_lookup[
+        selected_station_label
+    ]
+
+    station_id = selected_station[
+        "station_id"
+    ]
+
+    charger_model = selected_station[
+        "charger_model"
+    ]
+
+    latitude = selected_station[
+        "latitude"
+    ]
+
+    longitude = selected_station[
+        "longitude"
+    ]
+
+    location = selected_station[
+        "location"
+    ]
+
+    station_status = selected_station[
+        "status"
+    ]
+
+    st.divider()
+
+    st.subheader(
+        "Station Details"
+    )
+
+    st.write(
+        f"**ID:** {station_id}"
+    )
+
+    st.write(
+        f"**Model:** {charger_model}"
+    )
+
+    st.write(
+        f"**Location:** {location}"
+    )
+
+    st.write(
+        f"**Latitude:** {latitude:.6f}"
+    )
+
+    st.write(
+        f"**Longitude:** {longitude:.6f}"
+    )
+
+    if station_status.lower() == "active":
+        st.success(
+            "Status: Active"
+        )
+
+    elif station_status.lower() == "maintenance":
+        st.warning(
+            "Status: Maintenance"
+        )
+
+    else:
+        st.info(
+            f"Status: {station_status.title()}"
+        )
+
+    st.divider()
+
+    if st.button(
+        "🔄 Refresh Stations"
+    ):
+        st.cache_data.clear()
+        st.rerun()
+
 
 # -------------------------------------------------
 # Tabs
 # -------------------------------------------------
+
 
 tab_agent, tab_system = st.tabs(
     [
@@ -161,6 +281,7 @@ tab_agent, tab_system = st.tabs(
 # Agent tab
 # -------------------------------------------------
 
+
 with tab_agent:
     st.subheader(
         "Ask ChargeOps"
@@ -173,10 +294,14 @@ with tab_agent:
         "external tools are required."
     )
 
+    st.info(
+        f"Currently analyzing: "
+        f"{station_id} — {selected_station['name']}"
+    )
+
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # Display previous conversation.
     for message in st.session_state.messages:
         with st.chat_message(
             message["role"]
@@ -202,7 +327,6 @@ with tab_agent:
     )
 
     if prompt:
-        # Save user message.
         st.session_state.messages.append(
             {
                 "role": "user",
@@ -210,11 +334,16 @@ with tab_agent:
             }
         )
 
-        with st.chat_message("user"):
-            st.markdown(prompt)
+        with st.chat_message(
+            "user"
+        ):
+            st.markdown(
+                prompt
+            )
 
-        # Generate assistant response.
-        with st.chat_message("assistant"), st.spinner(
+        with st.chat_message(
+            "assistant"
+        ), st.spinner(
             "ChargeOps AI is analyzing..."
         ):
             try:
@@ -241,7 +370,9 @@ with tab_agent:
                     [],
                 )
 
-                st.markdown(answer)
+                st.markdown(
+                    answer
+                )
 
                 show_tool_activity(
                     tools,
@@ -294,6 +425,7 @@ with tab_agent:
 # System tab
 # -------------------------------------------------
 
+
 with tab_system:
     st.subheader(
         "Current Architecture"
@@ -304,18 +436,72 @@ with tab_system:
 User
   ↓
 Streamlit
-  ↓
-FastAPI
-  ↓
-ChargeOps Agent
-  ↓
-OpenAI Tool Decision
-  ├── Direct Answer
-  ├── Weather Tool
-  ├── Diagnostic Tool
-  └── Multiple Tools
+  │
+  ├── GET /stations
+  │       ↓
+  │    PostgreSQL
+  │
+  └── POST /agent/run
+          ↓
+     ChargeOps Agent
+          ↓
+     OpenAI Tool Decision
+        ├── Direct Answer
+        ├── Weather Tool
+        ├── Diagnostic Tool
+        └── Multiple Tools
         """
     )
+
+    st.subheader(
+        "Data Layer"
+    )
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric(
+            "Stations",
+            len(stations),
+        )
+
+    with col2:
+        active_count = sum(
+            station["status"].lower()
+            == "active"
+            for station in stations
+        )
+
+        st.metric(
+            "Active",
+            active_count,
+        )
+
+    with col3:
+        maintenance_count = sum(
+            station["status"].lower()
+            == "maintenance"
+            for station in stations
+        )
+
+        st.metric(
+            "Maintenance",
+            maintenance_count,
+        )
+
+    st.divider()
+
+    st.subheader(
+        "Station Inventory"
+    )
+
+    st.dataframe(
+        stations,
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    st.divider()
 
     st.subheader(
         "Agent Capabilities"
@@ -331,13 +517,13 @@ OpenAI Tool Decision
 Retrieves real current weather data for
 the selected charging station.
 
-Used for questions involving:
+Used for:
 
 - Temperature
 - Rain
 - Wind
+- Environmental conditions
 - Weather-related charger issues
-- Environmental operating conditions
             """
         )
 
@@ -370,14 +556,17 @@ Used for:
         """
 - FastAPI backend
 - Streamlit frontend
+- PostgreSQL database
+- Dockerized PostgreSQL
+- Async SQLAlchemy
 - OpenAI Responses API
-- Structured outputs
-- Async LLM requests
-- Multi-tool AI agent
+- Structured AI outputs
+- Multi-tool agent
 - Automatic tool selection
 - Real-time weather integration
 - Structured EV fault diagnosis
 - Agent activity trace
+- Database-driven station selection
 - Pydantic validation
 - Error handling
 - Automated testing
