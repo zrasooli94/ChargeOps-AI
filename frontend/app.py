@@ -454,10 +454,10 @@ with tab_agent:
     )
 
     st.write(
-        "Ask questions about the selected "
-        "charging station, diagnose faults, "
-        "check current weather, or retrieve "
-        "previous incident history."
+        "Ask questions about the selected charging station, "
+        "diagnose faults using the technical knowledge base, "
+        "check current weather, or retrieve previous "
+        "incident history."
     )
 
     st.info(
@@ -917,28 +917,30 @@ Streamlit Operations Dashboard
   │    PostgreSQL
   │
   └── ChargeOps Agent
-          ↓
-      Tool Orchestration
-          │
-          ├── get_station_details
-          │       ↓
-          │    PostgreSQL
-          │
-          ├── get_recent_incidents
-          │       ↓
-          │    PostgreSQL
-          │
-          ├── get_station_weather
-          │       ↓
-          │    External Weather API
-          │
-          └── diagnose_charging_issue
-                  ↓
-               OpenAI
-                  ↓
-             Save Incident
-                  ↓
-              PostgreSQL
+            │
+            ├── get_station_details
+            │       ↓
+            │    PostgreSQL
+            │
+            ├── get_recent_incidents
+            │       ↓
+            │    PostgreSQL
+            │
+            ├── get_station_weather
+            │       ↓
+            │    Weather API
+            │
+            ├── search_knowledge_base
+            │       ↓
+            │    OpenAI Embeddings
+            │       ↓
+            │    pgvector
+            │
+            └── diagnose_charging_issue
+                    ↓
+                 OpenAI
+                    ↓
+                Save Incident
         """
     )
 
@@ -1018,7 +1020,14 @@ Retrieves historical operational incidents.
 **3. `get_station_weather`**  
 Retrieves live external weather conditions.
 
-**4. `diagnose_charging_issue`**  
+**4. `search_knowledge_base`**  
+Performs semantic retrieval over the EV charging technical knowledge base using embeddings and pgvector.
+
+**5. `diagnose_charging_issue`**  
 Performs structured fault analysis and automatically records incidents.
+
+
+
+
         """
     )
