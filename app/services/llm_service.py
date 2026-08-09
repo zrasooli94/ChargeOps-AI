@@ -1,15 +1,14 @@
 import logging
 
-from openai import AsyncOpenAI, OpenAIError
+from openai import OpenAIError
 
 from app.core.config import settings
+from app.core.openai_client import client
 from app.schemas.analysis import ChargingIssueAnalysis
 
 logger = logging.getLogger(__name__)
 
 
-
-client = AsyncOpenAI(api_key=settings.openai_api_key)
 
 
 class LLMServiceError(Exception):
