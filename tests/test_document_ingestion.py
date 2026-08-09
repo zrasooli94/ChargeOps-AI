@@ -111,3 +111,65 @@ def test_upload_document() -> None:
         data["chunk_count"]
         == 5
     )
+
+def test_list_knowledge_documents() -> None:
+    document = KnowledgeDocument(
+        id=10,
+        document_key="doc-test123",
+        title="ABB Charger Manual",
+        category="manual",
+        source_filename="manual.pdf",
+        media_type="application/pdf",
+        sha256="a" * 64,
+        status="ready",
+        chunk_count=12,
+        created_at=datetime.now(
+            timezone.utc
+        ),
+    )
+
+    with patch(
+        "app.api.knowledge.list_knowledge_documents",
+        new=AsyncMock(
+            return_value=[document]
+        ),
+    ):
+        response = client.get(
+            "/knowledge/documents"
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data) == 1
+    assert data[0]["id"] == 10
+    assert data[0]["chunk_count"] == 12
+
+
+def test_delete_knowledge_document() -> None:
+    with patch(
+        "app.api.knowledge.delete_knowledge_document",
+        new=AsyncMock(
+            return_value=True
+        ),
+    ):
+        response = client.delete(
+            "/knowledge/documents/10"
+        )
+
+    assert response.status_code == 204
+
+
+def test_delete_missing_knowledge_document() -> None:
+    with patch(
+        "app.api.knowledge.delete_knowledge_document",
+        new=AsyncMock(
+            return_value=False
+        ),
+    ):
+        response = client.delete(
+            "/knowledge/documents/999"
+        )
+
+    assert response.status_code == 404
