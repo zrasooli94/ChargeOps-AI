@@ -2,6 +2,7 @@ import logging
 
 from fastapi import FastAPI
 
+from app.api.analysis import router as analysis_router
 from app.api.chat import router as chat_router
 from app.core.config import settings
 
@@ -15,6 +16,7 @@ app = FastAPI(
     version="0.1.0",
 )
 
+app.include_router(analysis_router)
 app.include_router(chat_router)
 
 

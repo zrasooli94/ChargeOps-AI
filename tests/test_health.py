@@ -1,8 +1,9 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.schemas.analysis import ChargingIssueAnalysis
 from app.services.llm_service import LLMServiceError
 
 client = TestClient(app)
@@ -60,3 +61,35 @@ def test_chat_llm_error() -> None:
 
     assert response.status_code == 503
     assert response.json()["detail"] == "Failed to generate an AI response."
+
+def test_analyze_success() -> None:
+    mock_result = ChargingIssueAnalysis(
+        category="network",
+        severity="high",
+        summary="The charger cannot connect to the OCPP backend.",
+        recommended_action="Check backend connectivity and configuration.",
+    )
+
+    with patch(
+        "app.api.analysis.analyze_charging_issue",
+        new=AsyncMock(return_value=mock_result),
+    ):
+        response = client.post(
+            "/analyze",
+            json={
+                "message": "The charger cannot connect to the backend."
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["category"] == "network"
+    assert response.json()["severity"] == "high"
+
+
+def test_analyze_rejects_empty_message() -> None:
+    response = client.post(
+        "/analyze",
+        json={"message": ""},
+    )
+
+    assert response.status_code == 422
