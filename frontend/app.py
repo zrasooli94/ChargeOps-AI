@@ -51,18 +51,12 @@ def get_stations() -> list[dict]:
 
 def run_agent(
     station_id: str,
-    charger_model: str,
-    latitude: float,
-    longitude: float,
     message: str,
 ) -> dict:
     response = httpx.post(
         f"{API_BASE_URL}/agent/run",
         json={
             "station_id": station_id,
-            "charger_model": charger_model,
-            "latitude": latitude,
-            "longitude": longitude,
             "message": message,
         },
         timeout=90.0,
@@ -71,6 +65,8 @@ def run_agent(
     response.raise_for_status()
 
     return response.json()
+
+
 
 
 # -------------------------------------------------
@@ -108,9 +104,19 @@ def show_tool_activity(
                 "Completed successfully",
             )
 
-            st.success(
-                f"{tool_name}: {summary}"
+            status = event.get(
+                "status",
+                "success",
             )
+
+            if status == "error":
+                st.error(
+                    f"{tool_name}: {summary}"
+                )
+            else:
+                st.success(
+                    f"{tool_name}: {summary}"
+                )
 
 
 # -------------------------------------------------
@@ -349,9 +355,6 @@ with tab_agent:
             try:
                 result = run_agent(
                     station_id=station_id,
-                    charger_model=charger_model,
-                    latitude=latitude,
-                    longitude=longitude,
                     message=prompt,
                 )
 

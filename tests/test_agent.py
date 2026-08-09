@@ -14,14 +14,20 @@ def test_agent_success() -> None:
         "app.api.agent.run_agent",
         new=AsyncMock(
             return_value=(
-                "Current hot weather may contribute to thermal stress.",
-                ["get_station_weather"],
+                "Station KL-205 is currently active.",
+                [
+                    "get_station_details",
+                ],
                 [
                     ToolTrace(
-                        tool="get_station_weather",
+                        tool="get_station_details",
                         status="success",
-                        summary="31.5°C, precipitation 0 mm, wind 8 km/h",
-                    ),
+                        summary=(
+                            "KL-205 | ABB Terra 54 | "
+                            "Kuala Lumpur, Malaysia | "
+                            "status: active"
+                        ),
+                    )
                 ],
             )
         ),
@@ -30,11 +36,8 @@ def test_agent_success() -> None:
             "/agent/run",
             json={
                 "station_id": "kl-205",
-                "latitude": 3.139,
-                "longitude": 101.6869,
                 "message": (
-                    "Could today's weather be contributing "
-                    "to overheating?"
+                    "Tell me about this charging station."
                 ),
             },
         )
@@ -44,9 +47,15 @@ def test_agent_success() -> None:
     data = response.json()
 
     assert data["station_id"] == "KL-205"
-    assert data["used_tools"] == ["get_station_weather"]
-    assert data["trace"][0]["tool"] == "get_station_weather"
-    assert data["trace"][0]["status"] == "success"
+
+    assert data["used_tools"] == [
+        "get_station_details"
+    ]
+
+    assert (
+        data["trace"][0]["tool"]
+        == "get_station_details"
+    )
 
 
 def test_agent_failure() -> None:
@@ -62,25 +71,57 @@ def test_agent_failure() -> None:
             "/agent/run",
             json={
                 "station_id": "KL-205",
-                "latitude": 3.139,
-                "longitude": 101.6869,
-                "message": "Check current weather.",
-                "charger_model": "ABB Terra 54",
+                "message": "Analyze this station.",
             },
         )
 
     assert response.status_code == 503
 
 
-def test_agent_rejects_invalid_coordinates() -> None:
+def test_agent_normalizes_station_id() -> None:
+    with patch(
+        "app.api.agent.run_agent",
+        new=AsyncMock(
+            return_value=(
+                "Station loaded.",
+                [],
+                [],
+            )
+        ),
+    ) as mocked_agent:
+        response = client.post(
+            "/agent/run",
+            json={
+                "station_id": "  kl-205  ",
+                "message": "Tell me about this station.",
+            },
+        )
+
+    assert response.status_code == 200
+
+    mocked_agent.assert_awaited_once()
+
+    call = mocked_agent.await_args
+
+    assert call is not None
+
+    assert call.kwargs["station_id"] == "KL-205"
+    assert (
+        call.kwargs["message"]
+        == "Tell me about this station."
+    )
+    assert "session" in call.kwargs
+
+
+def test_agent_rejects_client_station_metadata() -> None:
     response = client.post(
         "/agent/run",
         json={
             "station_id": "KL-205",
-            "latitude": 500,
-            "longitude": 101.6869,
-            "message": "Check the weather.",
-            "charger_model": "ABB Terra 54",
+            "message": "Tell me about this station.",
+            "charger_model": "Fake Charger",
+            "latitude": 99.0,
+            "longitude": 99.0,
         },
     )
 

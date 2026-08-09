@@ -1,28 +1,21 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+)
 
 
 class AgentRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+
     station_id: str = Field(
         min_length=1,
         max_length=50,
-    )
-    charger_model: str | None = None
-    
-    # charger_model: str | None = Field(
-    #     default=None,
-    #     max_length=100,
-    # )
-
-    latitude: float = Field(
-        ge=-90,
-        le=90,
-    )
-
-    longitude: float = Field(
-        ge=-180,
-        le=180,
     )
 
     message: str = Field(
@@ -32,13 +25,21 @@ class AgentRequest(BaseModel):
 
     @field_validator("station_id")
     @classmethod
-    def normalize_station_id(cls, value: str) -> str:
+    def normalize_station_id(
+        cls,
+        value: str,
+    ) -> str:
         return value.strip().upper()
 
 
 class ToolTrace(BaseModel):
     tool: str
-    status: Literal["success"]
+
+    status: Literal[
+        "success",
+        "error",
+    ]
+
     summary: str
 
 
