@@ -1,6 +1,6 @@
 import logging
 
-from openai import OpenAI, OpenAIError
+from openai import AsyncOpenAI, OpenAIError
 
 from app.core.config import settings
 
@@ -8,18 +8,18 @@ logger = logging.getLogger(__name__)
 
 
 
-client = OpenAI(api_key=settings.openai_api_key)
+client = AsyncOpenAI(api_key=settings.openai_api_key)
 
 
 class LLMServiceError(Exception):
     """Raised when the LLM service fails."""
 
 
-def generate_response(message: str) -> str:
+async def generate_response(message: str) -> str:
     try:
         logger.info("Sending request to OpenAI")
 
-        response = client.responses.create(
+        response = await client.responses.create(
             model=settings.openai_model,
             instructions=(
                 "You are ChargeOps AI, an assistant for EV charging operations. "

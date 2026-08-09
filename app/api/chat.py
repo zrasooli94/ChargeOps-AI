@@ -7,9 +7,9 @@ router = APIRouter()
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest) -> ChatResponse:
+async def chat(request: ChatRequest) -> ChatResponse:
     try:
-        answer = generate_response(request.message)
+        answer = await generate_response(request.message)
         return ChatResponse(answer=answer)
 
     except LLMServiceError as error:
