@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.knowledge import (
     KnowledgeSearchResult,
 )
-from app.services.agent_service import (
+from app.services.agent_tools import (
     execute_knowledge_tool,
 )
 
@@ -32,7 +32,7 @@ def test_execute_knowledge_tool() -> None:
     )
 
     with patch(
-        "app.services.agent_service.search_knowledge",
+        "app.services.agent_tools.search_knowledge",
         new=AsyncMock(
             return_value=[
                 knowledge_result

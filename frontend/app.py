@@ -1459,9 +1459,17 @@ Streamlit Operations Dashboard
   │       ├── OpenAI Embeddings
   │       └── pgvector
   │
-  └── ChargeOps Agent
-          ↓
-      Tool Orchestration
+  └── ChargeOps Agent — LangGraph
+              │
+              ↓
+          call_model
+              │
+          tool call?
+           /       \\
+         yes        no
+          ↓          ↓
+    execute_tools    END
+          │
           │
           ├── get_station_details
           │       ↓
@@ -1486,6 +1494,8 @@ Streamlit Operations Dashboard
               Save Incident
                   ↓
               PostgreSQL
+          │
+          └──────────────→ call_model
         """
     )
 
@@ -1518,6 +1528,9 @@ Streamlit Operations Dashboard
 - Structured Outputs
 - Function Calling
 - Multi-tool Agent
+- LangGraph StateGraph
+- Conditional Routing
+- Runtime Context
 - RAG
 - Embeddings
             """
