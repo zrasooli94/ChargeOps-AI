@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class DiagnosticStep(BaseModel):
@@ -37,3 +37,12 @@ class ChargingIssueAnalysis(BaseModel):
     diagnostic_steps: list[DiagnosticStep]
 
     needs_human_escalation: bool
+
+    @model_validator(mode="after")
+    def validate_escalation(self) -> "ChargingIssueAnalysis":
+        if self.severity == "critical" and not self.needs_human_escalation:
+            self.needs_human_escalation = True
+
+        return self
+
+    

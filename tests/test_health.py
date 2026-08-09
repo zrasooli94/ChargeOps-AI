@@ -110,3 +110,21 @@ def test_analyze_rejects_empty_message() -> None:
     )
 
     assert response.status_code == 422
+
+def test_critical_issue_requires_human_escalation() -> None:
+    analysis = ChargingIssueAnalysis(
+        category="power",
+        severity="critical",
+        confidence=0.95,
+        summary="Critical electrical fault detected.",
+        likely_causes=["Power system failure"],
+        diagnostic_steps=[
+            {
+                "step": 1,
+                "action": "Isolate the charging station.",
+            }
+        ],
+        needs_human_escalation=False,
+    )
+
+    assert analysis.needs_human_escalation is True
