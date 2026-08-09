@@ -1,9 +1,15 @@
+from datetime import datetime
 from unittest.mock import AsyncMock, patch
+from uuid import UUID
 
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.schemas.analysis import ChargingIssueAnalysis, DiagnosticStep
+from app.schemas.analysis import (
+    ChargingIssueAnalysis,
+    ChargingIssueRequest,
+    DiagnosticStep,
+)
 from app.services.llm_service import LLMServiceError
 
 client = TestClient(app)
@@ -98,16 +104,21 @@ def test_analyze_success() -> None:
             },
         )
 
-    assert response.status_code == 200
+
     data = response.json()
 
+    assert response.status_code == 200
+
+    assert UUID(data["analysis_id"])
+    assert datetime.fromisoformat(data["created_at"])
+
+    assert data["model"] == "gpt-5-mini"
     assert data["station_id"] == "KL-101"
     assert data["charger_model"] == "Test Charger"
+
     assert data["analysis"]["category"] == "network"
     assert data["analysis"]["severity"] == "high"
     assert data["analysis"]["confidence"] == 0.95
-
-    
     assert data["analysis"]["needs_human_escalation"] is False
 
 
@@ -139,3 +150,23 @@ def test_critical_issue_requires_human_escalation() -> None:
     )
 
     assert analysis.needs_human_escalation is True
+
+def test_station_id_is_normalized() -> None:
+    request = ChargingIssueRequest(
+        station_id="  kl-205  ",
+        charger_model="ABB Terra 54",
+        issue="The charging station repeatedly stops unexpectedly.",
+    )
+
+    assert request.station_id == "KL-205"
+
+def test_analyze_rejects_short_issue() -> None:
+    response = client.post(
+        "/analyze",
+        json={
+            "station_id": "KL-205",
+            "issue": "broken",
+        },
+    )
+
+    assert response.status_code == 422

@@ -1,6 +1,30 @@
+from datetime import datetime
 from typing import Literal
+from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+class ChargingIssueRequest(BaseModel):
+    station_id: str = Field(
+        min_length=1,
+        max_length=50,
+    )
+
+    issue: str = Field(
+        min_length=10,
+        max_length=3000,
+    )
+
+    charger_model: str | None = Field(
+        default=None,
+        max_length=100,
+    )
+
+    @field_validator("station_id")
+    @classmethod
+    def normalize_station_id(cls, value: str) -> str:
+        return value.strip().upper()
 
 
 class DiagnosticStep(BaseModel):
@@ -40,28 +64,18 @@ class ChargingIssueAnalysis(BaseModel):
 
     @model_validator(mode="after")
     def validate_escalation(self) -> "ChargingIssueAnalysis":
-        if self.severity == "critical" and not self.needs_human_escalation:
+        if self.severity == "critical":
             self.needs_human_escalation = True
 
         return self
 
+
 class ChargingIssueResponse(BaseModel):
+    analysis_id: UUID
+    created_at: datetime
+    model: str
+
     station_id: str
     charger_model: str | None
+
     analysis: ChargingIssueAnalysis
-
-class ChargingIssueRequest(BaseModel):
-    station_id: str = Field(
-        min_length=1,
-        max_length=50,
-    )
-
-    issue: str = Field(
-        min_length=1,
-        max_length=3000,
-    )
-
-    charger_model: str | None = Field(
-        default=None,
-        max_length=100,
-    )
