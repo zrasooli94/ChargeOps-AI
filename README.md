@@ -30,3 +30,21 @@ app/
 
 tests/
 └── test_health.py
+
+
+## Streamlit Frontend
+
+ChargeOps AI includes an interactive Streamlit interface for interacting with the tool-calling agent.
+
+Start the FastAPI backend:
+
+```bash
+uvicorn app.main:app --reload
+
+**Current Features**
+```markdown
+- Streamlit interactive frontend
+- Tool-calling AI agent
+- Real-time weather tool
+- Automatic tool selection
+
