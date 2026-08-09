@@ -17,9 +17,10 @@ async def agent_run(
     request: AgentRequest,
 ) -> AgentResponse:
     try:
-        answer, used_tools = await run_agent(
+        answer, used_tools, trace = await run_agent(
             message=request.message,
             station_id=request.station_id,
+            charger_model=request.charger_model,
             latitude=request.latitude,
             longitude=request.longitude,
         )
@@ -28,6 +29,7 @@ async def agent_run(
             station_id=request.station_id,
             answer=answer,
             used_tools=used_tools,
+            trace=trace,
         )
 
     except AgentServiceError as error:

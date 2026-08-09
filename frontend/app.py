@@ -34,6 +34,7 @@ def check_backend() -> bool:
 
 def run_agent(
     station_id: str,
+    charger_model: str,
     latitude: float,
     longitude: float,
     message: str,
@@ -42,11 +43,12 @@ def run_agent(
         f"{API_BASE_URL}/agent/run",
         json={
             "station_id": station_id,
+            "charger_model": charger_model,
             "latitude": latitude,
             "longitude": longitude,
             "message": message,
         },
-        timeout=60.0,
+        timeout=90.0,
     )
 
     response.raise_for_status()
@@ -54,12 +56,52 @@ def run_agent(
     return response.json()
 
 
+def show_tool_activity(
+    tools: list[str],
+    trace: list[dict],
+) -> None:
+    if not tools:
+        st.caption(
+            "💬 No external tools required"
+        )
+        return
+
+    st.caption(
+        "🔧 Tools used: "
+        + ", ".join(tools)
+    )
+
+    with st.expander(
+        "🔍 Agent Activity",
+        expanded=True,
+    ):
+        for event in trace:
+            tool_name = event.get(
+                "tool",
+                "unknown_tool",
+            )
+
+            summary = event.get(
+                "summary",
+                "Completed successfully",
+            )
+
+            st.success(
+                f"{tool_name}: {summary}"
+            )
+
+
 st.title("⚡ ChargeOps AI")
 
 st.caption(
-    "Agentic EV Charging Intelligence & Operations Platform"
+    "Agentic EV Charging Intelligence "
+    "& Operations Platform"
 )
 
+
+# -------------------------------------------------
+# Sidebar
+# -------------------------------------------------
 
 with st.sidebar:
     st.header("Station Context")
@@ -69,27 +111,45 @@ with st.sidebar:
         value="KL-205",
     )
 
+    charger_model = st.text_input(
+        "Charger Model",
+        value="ABB Terra 54",
+    )
+
     latitude = st.number_input(
         "Latitude",
-        value=3.1390,
+        min_value=-90.0,
+        max_value=90.0,
+        value=3.139000,
         format="%.6f",
     )
 
     longitude = st.number_input(
         "Longitude",
-        value=101.6869,
+        min_value=-180.0,
+        max_value=180.0,
+        value=101.686900,
         format="%.6f",
     )
 
     st.divider()
 
     if check_backend():
-        st.success("Backend connected")
+        st.success(
+            "Backend connected"
+        )
+
     else:
-        st.error("Backend unavailable")
+        st.error(
+            "Backend unavailable"
+        )
 
 
-tab_agent, tab_about = st.tabs(
+# -------------------------------------------------
+# Tabs
+# -------------------------------------------------
+
+tab_agent, tab_system = st.tabs(
     [
         "🤖 AI Agent",
         "ℹ️ System",
@@ -97,25 +157,44 @@ tab_agent, tab_about = st.tabs(
 )
 
 
+# -------------------------------------------------
+# Agent tab
+# -------------------------------------------------
+
 with tab_agent:
-    st.subheader("Ask ChargeOps")
+    st.subheader(
+        "Ask ChargeOps"
+    )
 
     st.write(
-        "Ask operational questions about this charging station. "
-        "The agent can decide whether it needs external tools."
+        "Ask operational questions about the "
+        "selected charging station. "
+        "The agent decides automatically whether "
+        "external tools are required."
     )
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
+    # Display previous conversation.
     for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+        with st.chat_message(
+            message["role"]
+        ):
+            st.markdown(
+                message["content"]
+            )
 
-            if message.get("tools"):
-                st.caption(
-                    "Tools used: "
-                    + ", ".join(message["tools"])
+            if message["role"] == "assistant":
+                show_tool_activity(
+                    message.get(
+                        "tools",
+                        [],
+                    ),
+                    message.get(
+                        "trace",
+                        [],
+                    ),
                 )
 
     prompt = st.chat_input(
@@ -123,6 +202,7 @@ with tab_agent:
     )
 
     if prompt:
+        # Save user message.
         st.session_state.messages.append(
             {
                 "role": "user",
@@ -133,82 +213,174 @@ with tab_agent:
         with st.chat_message("user"):
             st.markdown(prompt)
 
+        # Generate assistant response.
         with st.chat_message("assistant"), st.spinner(
             "ChargeOps AI is analyzing..."
         ):
             try:
                 result = run_agent(
                     station_id=station_id,
+                    charger_model=charger_model,
                     latitude=latitude,
                     longitude=longitude,
                     message=prompt,
                 )
 
-                answer = result["answer"]
-                tools = result["used_tools"]
+                answer = result.get(
+                    "answer",
+                    "No response returned.",
+                )
+
+                tools = result.get(
+                    "used_tools",
+                    [],
+                )
+
+                trace = result.get(
+                    "trace",
+                    [],
+                )
 
                 st.markdown(answer)
 
-                if tools:
-                    st.caption(
-                        "🔧 Tools used: "
-                        + ", ".join(tools)
-                    )
-                else:
-                    st.caption(
-                        "💬 No external tools required"
-                    )
+                show_tool_activity(
+                    tools,
+                    trace,
+                )
 
                 st.session_state.messages.append(
                     {
                         "role": "assistant",
                         "content": answer,
                         "tools": tools,
+                        "trace": trace,
                     }
                 )
 
             except httpx.HTTPStatusError as error:
+                try:
+                    error_data = (
+                        error.response.json()
+                    )
+
+                    detail = error_data.get(
+                        "detail",
+                        "Unknown backend error",
+                    )
+
+                except ValueError:
+                    detail = (
+                        error.response.text
+                    )
+
                 st.error(
-                    f"Backend error: "
-                    f"{error.response.status_code}"
+                    f"Backend error "
+                    f"({error.response.status_code}): "
+                    f"{detail}"
                 )
 
-            except httpx.HTTPError:
+            except httpx.HTTPError as error:
                 st.error(
-                    "Could not connect to the ChargeOps backend."
+                    "Could not connect to the "
+                    "ChargeOps backend."
+                )
+
+                st.caption(
+                    str(error)
                 )
 
 
-with tab_about:
-    st.subheader("Current Architecture")
+# -------------------------------------------------
+# System tab
+# -------------------------------------------------
+
+with tab_system:
+    st.subheader(
+        "Current Architecture"
+    )
 
     st.code(
         """
+User
+  ↓
 Streamlit
-    ↓
+  ↓
 FastAPI
-    ↓
+  ↓
 ChargeOps Agent
-    ↓
-OpenAI
-    ↓
-Tool Decision
-    ├── Weather API
-    └── Direct Answer
+  ↓
+OpenAI Tool Decision
+  ├── Direct Answer
+  ├── Weather Tool
+  ├── Diagnostic Tool
+  └── Multiple Tools
         """
     )
 
-    st.subheader("Current Capabilities")
+    st.subheader(
+        "Agent Capabilities"
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown(
+            """
+### 🌦 Weather Tool
+
+Retrieves real current weather data for
+the selected charging station.
+
+Used for questions involving:
+
+- Temperature
+- Rain
+- Wind
+- Weather-related charger issues
+- Environmental operating conditions
+            """
+        )
+
+    with col2:
+        st.markdown(
+            """
+### 🔧 Diagnostic Tool
+
+Performs structured analysis of EV
+charging faults.
+
+Used for:
+
+- Overheating
+- Network failures
+- Hardware faults
+- Power problems
+- Payment issues
+- Troubleshooting
+            """
+        )
+
+    st.divider()
+
+    st.subheader(
+        "Current Project Features"
+    )
 
     st.markdown(
         """
-- Generative AI chat
-- Structured EV fault analysis
-- Real-time weather integration
-- Tool-calling agent
+- FastAPI backend
+- Streamlit frontend
+- OpenAI Responses API
+- Structured outputs
+- Async LLM requests
+- Multi-tool AI agent
 - Automatic tool selection
-- Input validation
+- Real-time weather integration
+- Structured EV fault diagnosis
+- Agent activity trace
+- Pydantic validation
 - Error handling
 - Automated testing
+- Ruff code quality checks
         """
     )

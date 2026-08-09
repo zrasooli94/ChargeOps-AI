@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -6,6 +8,12 @@ class AgentRequest(BaseModel):
         min_length=1,
         max_length=50,
     )
+    charger_model: str | None = None
+    
+    # charger_model: str | None = Field(
+    #     default=None,
+    #     max_length=100,
+    # )
 
     latitude: float = Field(
         ge=-90,
@@ -28,7 +36,14 @@ class AgentRequest(BaseModel):
         return value.strip().upper()
 
 
+class ToolTrace(BaseModel):
+    tool: str
+    status: Literal["success"]
+    summary: str
+
+
 class AgentResponse(BaseModel):
     station_id: str
     answer: str
     used_tools: list[str]
+    trace: list[ToolTrace]
