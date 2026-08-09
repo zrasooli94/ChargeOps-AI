@@ -1,14 +1,22 @@
-from openai import OpenAI
+from openai import OpenAI, OpenAIError
 
 from app.core.config import settings
 
 client = OpenAI(api_key=settings.openai_api_key)
 
 
-def generate_response(message: str) -> str:
-    response = client.responses.create(
-        model="gpt-5-mini",
-        input=message,
-    )
+class LLMServiceError(Exception):
+    """Raised when the LLM service fails."""
 
-    return response.output_text
+
+def generate_response(message: str) -> str:
+    try:
+        response = client.responses.create(
+            model="gpt-5-mini",
+            input=message,
+        )
+
+        return response.output_text
+
+    except OpenAIError as error:
+        raise LLMServiceError("Failed to generate an AI response.") from error

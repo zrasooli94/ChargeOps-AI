@@ -1,8 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 from app.core.config import settings
 from app.schemas.chat import ChatRequest, ChatResponse
-from app.services.llm_service import generate_response
+from app.services.llm_service import LLMServiceError, generate_response
 
 app = FastAPI(
     title=settings.app_name,
@@ -20,6 +20,12 @@ def health_check() -> dict[str, str]:
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
-    answer = generate_response(request.message)
+    try:
+        answer = generate_response(request.message)
+        return ChatResponse(answer=answer)
 
-    return ChatResponse(answer=answer)
+    except LLMServiceError as error:
+        raise HTTPException(
+            status_code=503,
+            detail=str(error),
+        ) from error
