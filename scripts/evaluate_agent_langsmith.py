@@ -9,7 +9,6 @@ from langsmith import Client
 from langsmith.evaluation import run_evaluator
 from langsmith.schemas import Example, Run
 
-
 API_BASE_URL = os.getenv(
     "CHARGEOPS_API_URL",
     "http://127.0.0.1:8000",

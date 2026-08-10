@@ -3,15 +3,15 @@ from __future__ import annotations
 import json
 import os
 import sys
-from pathlib import Path
-from typing import Any
-from uuid import uuid4
 from datetime import (
     datetime,
     timezone,
 )
-import httpx
+from pathlib import Path
+from typing import Any
+from uuid import uuid4
 
+import httpx
 
 API_BASE_URL = os.getenv(
     "CHARGEOPS_API_URL",
@@ -278,10 +278,10 @@ def main() -> None:
     ) as client:
         try:
             health = client.get(
-                (
+                
                     f"{API_BASE_URL}"
                     "/health"
-                )
+                
             )
 
             health.raise_for_status()
