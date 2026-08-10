@@ -34,6 +34,7 @@ def test_agent_success() -> None:
                     )
                 ],
                 None,
+                [],
             )
         ),
     ) as mocked_agent:
@@ -131,6 +132,7 @@ def test_agent_normalizes_station_id() -> None:
                 [],
                 [],
                 None,
+                [],
             )
         ),
     ) as mocked_agent:

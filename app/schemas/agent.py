@@ -1,4 +1,5 @@
 from typing import (
+    Any,
     Literal,
 )
 from uuid import UUID
@@ -85,3 +86,10 @@ class AgentResponse(BaseModel):
     approval_request: (
         AgentApprovalRequest | None
     ) = None
+
+    retrieved_evidence: list[
+        dict[str, Any]
+    ] = Field(
+        default_factory=list
+    )
+    

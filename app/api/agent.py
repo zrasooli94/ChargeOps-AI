@@ -58,6 +58,7 @@ async def run_chargeops_agent(
             used_tools,
             trace,
             approval_request,
+            retrieved_evidence,
         ) = await run_agent(
             message=request.message,
             station_id=request.station_id,
@@ -119,6 +120,9 @@ async def run_chargeops_agent(
                 is not None
                 else None
             ),
+            retrieved_evidence=(
+                retrieved_evidence
+            ),
         )
 
     except AgentServiceError as error:
@@ -145,6 +149,7 @@ async def resume_chargeops_agent(
             used_tools,
             trace,
             approval_request,
+            retrieved_evidence,
         ) = await resume_agent(
             thread_id=str(
                 request.thread_id
@@ -197,6 +202,9 @@ async def resume_chargeops_agent(
                 if approval_request
                 is not None
                 else None
+            ),
+            retrieved_evidence=(
+                retrieved_evidence
             ),
         )
 

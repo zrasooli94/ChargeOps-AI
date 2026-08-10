@@ -1,0 +1,26 @@
+[
+  {
+    "id": "rag-ocpp-connectivity",
+    "station_id": "KL-205",
+    "message": "According to our technical knowledge base, what should be checked when an OCPP charger repeatedly loses connectivity?",
+    "require_citations": true
+  },
+  {
+    "id": "rag-connector-heating",
+    "station_id": "KL-205",
+    "message": "According to our technical knowledge base, what should I inspect when a charging connector becomes unusually hot?",
+    "require_citations": true
+  },
+  {
+    "id": "rag-hot-weather",
+    "station_id": "KL-205",
+    "message": "What does our technical knowledge base say about how high ambient temperature can affect EV charger operation?",
+    "require_citations": true
+  },
+  {
+    "id": "rag-input-power",
+    "station_id": "KL-205",
+    "message": "According to our technical knowledge base, what should be checked when a charger has unstable or abnormal input power?",
+    "require_citations": true
+  }
+]

@@ -805,6 +805,7 @@ def parse_graph_result(
     list[str],
     list[ToolTrace],
     dict[str, Any] | None,
+    list[dict[str, Any]],
 ]:
     interrupt_items = result.get(
         "__interrupt__",
@@ -862,13 +863,22 @@ def parse_graph_result(
         )
         for trace in raw_traces
     ]
+    retrieved_evidence = cast(
+        list[dict[str, Any]],
+        result.get(
+            "knowledge_context",
+            [],
+        ),
+    )
 
     return (
         final_answer,
         used_tools,
         traces,
         approval_request,
+        retrieved_evidence,
     )
+    
 
 async def run_chargeops_graph(
     message: str,
@@ -880,6 +890,7 @@ async def run_chargeops_graph(
     list[str],
     list[ToolTrace],
     dict[str, Any] | None,
+    list[dict[str, Any]],
 ]:
     graph = get_chargeops_graph()
 
@@ -1022,6 +1033,7 @@ async def resume_chargeops_graph(
     list[str],
     list[ToolTrace],
     dict[str, Any] | None,
+    list[dict[str, Any]],
 ]:
     graph = get_chargeops_graph()
 

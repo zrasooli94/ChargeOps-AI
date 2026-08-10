@@ -1,5 +1,6 @@
 import json
 import logging
+from typing import Any
 from uuid import uuid4
 
 from langgraph.errors import (
@@ -44,7 +45,8 @@ async def run_agent(
     str,
     list[str],
     list[ToolTrace],
-    dict | None,
+    dict[str, Any] | None,
+    list[dict[str, Any]],
 ]:
     try:
         resolved_thread_id = (
@@ -92,7 +94,8 @@ async def resume_agent(
     str,
     list[str],
     list[ToolTrace],
-    dict | None,
+    dict[str, Any] | None,
+    list[dict[str, Any]],
 ]:
     try:
         return await resume_chargeops_graph(
