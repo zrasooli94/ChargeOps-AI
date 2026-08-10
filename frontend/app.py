@@ -67,6 +67,44 @@ def get_incidents(
 
     return response.json()
 
+def run_agent(
+    station_id: str,
+    message: str,
+    thread_id: str,
+) -> dict:
+    response = httpx.post(
+        f"{API_BASE_URL}/agent/run",
+        json={
+            "station_id": station_id,
+            "message": message,
+            "thread_id": thread_id,
+        },
+        timeout=90.0,
+    )
+
+    response.raise_for_status()
+
+    return response.json()
+
+
+def resume_agent(
+    thread_id: str,
+    approved: bool,
+) -> dict:
+    response = httpx.post(
+        f"{API_BASE_URL}/agent/resume",
+        json={
+            "thread_id": thread_id,
+            "approved": approved,
+        },
+        timeout=90.0,
+    )
+
+    response.raise_for_status()
+
+    return response.json()
+
+
 
 @st.cache_data(ttl=15)
 def get_knowledge_documents() -> list[dict]:
@@ -96,25 +134,6 @@ def update_incident_status(
 
     return response.json()
 
-
-def run_agent(
-    station_id: str,
-    message: str,
-    thread_id: str,
-) -> dict:
-    response = httpx.post(
-        f"{API_BASE_URL}/agent/run",
-        json={
-            "station_id": station_id,
-            "message": message,
-            "thread_id": thread_id,
-        },
-        timeout=90.0,
-    )
-
-    response.raise_for_status()
-
-    return response.json()
 
 
 
@@ -599,6 +618,13 @@ with tab_agent:
             station_id
         ]
     )
+
+    if (
+        "pending_approvals"
+        not in st.session_state
+    ):
+        st.session_state.pending_approvals = {}
+
     st.caption(
         "Conversation thread: "
         f"`{thread_id}`"
@@ -669,10 +695,156 @@ with tab_agent:
                     ),
                 )
 
+
+    pending_approval = (
+        st.session_state
+        .pending_approvals
+        .get(
+            thread_id
+        )
+    )
+    
+    
+    if pending_approval:
+        st.warning(
+            "⚠️ Protected Operation "
+            "Requires Approval"
+        )
+    
+        st.write(
+            "**Action:** "
+            f"{pending_approval['action']}"
+        )
+    
+        st.write(
+            "**Station:** "
+            f"{pending_approval['station_id']} — "
+            f"{pending_approval['station_name']}"
+        )
+    
+        st.write(
+            "**Current status:** "
+            f"{pending_approval['current_status']}"
+        )
+    
+        st.write(
+            "**Requested status:** "
+            f"{pending_approval['requested_status']}"
+        )
+    
+        st.caption(
+            pending_approval[
+                "warning"
+            ]
+        )
+    
+        approve_col, reject_col = (
+            st.columns(2)
+        )
+    
+        with approve_col:
+            if st.button(
+                "✅ Approve",
+                key=(
+                    f"approve_"
+                    f"{thread_id}"
+                ),
+                use_container_width=True,
+            ):
+                with st.spinner(
+                    "Resuming approved workflow..."
+                ):
+                    result = resume_agent(
+                        thread_id=thread_id,
+                        approved=True,
+                    )
+    
+                st.session_state.pending_approvals.pop(
+                    thread_id,
+                    None,
+                )
+    
+                if result.get(
+                    "approval_required"
+                ):
+                    st.session_state.pending_approvals[
+                        thread_id
+                    ] = result[
+                        "approval_request"
+                    ]
+    
+                elif result.get(
+                    "answer"
+                ):
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "content": (
+                                result["answer"]
+                            ),
+                            "tools": result.get(
+                                "used_tools",
+                                [],
+                            ),
+                            "trace": result.get(
+                                "trace",
+                                [],
+                            ),
+                        }
+                    )
+    
+                st.cache_data.clear()
+    
+                st.rerun()
+    
+        with reject_col:
+            if st.button(
+                "❌ Reject",
+                key=(
+                    f"reject_"
+                    f"{thread_id}"
+                ),
+                use_container_width=True,
+            ):
+                with st.spinner(
+                    "Cancelling protected action..."
+                ):
+                    result = resume_agent(
+                        thread_id=thread_id,
+                        approved=False,
+                    )
+    
+                st.session_state.pending_approvals.pop(
+                    thread_id,
+                    None,
+                )
+    
+                if result.get(
+                    "answer"
+                ):
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "content": (
+                                result["answer"]
+                            ),
+                            "tools": result.get(
+                                "used_tools",
+                                [],
+                            ),
+                            "trace": result.get(
+                                "trace",
+                                [],
+                            ),
+                        }
+                    )
+    
+                st.rerun()
+
     prompt = st.chat_input(
         "Ask ChargeOps about this station..."
     )
-
+    
     if prompt:
         messages.append(
             {
@@ -680,14 +852,14 @@ with tab_agent:
                 "content": prompt,
             }
         )
-
+    
         with st.chat_message(
             "user"
         ):
             st.markdown(
                 prompt
             )
-
+    
         with st.chat_message(
             "assistant"
         ), st.spinner(
@@ -699,31 +871,56 @@ with tab_agent:
                     message=prompt,
                     thread_id=thread_id,
                 )
-
+    
+                # =================================
+                # HUMAN APPROVAL CHECK
+                # =================================
+    
+                if result.get(
+                    "approval_required"
+                ):
+                    st.session_state.pending_approvals[
+                        thread_id
+                    ] = result[
+                        "approval_request"
+                    ]
+    
+                    # Clear cached station data
+                    # before rerendering the page.
+                    st.cache_data.clear()
+    
+                    # Rerun Streamlit so the
+                    # approval card appears.
+                    st.rerun()
+    
+                # =================================
+                # NORMAL COMPLETED RESPONSE
+                # =================================
+    
                 answer = result.get(
                     "answer",
                     "No response returned.",
                 )
-
+    
                 tools = result.get(
                     "used_tools",
                     [],
                 )
-
+    
                 trace = result.get(
                     "trace",
                     [],
                 )
-
+    
                 st.markdown(
                     answer
                 )
-
+    
                 show_tool_activity(
                     tools,
                     trace,
                 )
-
+    
                 messages.append(
                     {
                         "role": "assistant",
@@ -732,27 +929,26 @@ with tab_agent:
                         "trace": trace,
                     }
                 )
-
+    
                 st.cache_data.clear()
-
+    
             except (
                 httpx.HTTPStatusError
             ) as error:
                 show_http_error(
                     error
                 )
-
+    
             except httpx.HTTPError as error:
                 st.error(
                     "Could not connect to "
                     "ChargeOps backend."
                 )
-
+    
                 st.caption(
                     str(error)
                 )
-
-
+    
 # =================================================
 # Incidents tab
 # =================================================

@@ -11,6 +11,10 @@ from langgraph.graph import (
     StateGraph,
 )
 from langgraph.runtime import Runtime
+from langgraph.types import (
+    Command,
+    interrupt,
+)
 from openai.types.responses import (
     ResponseInputItemParam,
     ResponseInputParam,
@@ -33,9 +37,11 @@ from app.services.agent_tools import (
     DiagnosticToolArguments,
     KnowledgeToolArguments,
     StationContext,
+    StationStatusToolArguments,
     execute_diagnostic_tool,
     execute_incident_history_tool,
     execute_knowledge_tool,
+    execute_station_status_tool,
     execute_station_tool,
     execute_weather_tool,
 )
@@ -90,6 +96,7 @@ class ChargeOpsState(TypedDict):
 
     iteration_count: int
 
+    approval_decision: bool | None
 
 # =================================================
 # Model node
@@ -168,14 +175,118 @@ async def call_model_node(
 def route_after_model(
     state: ChargeOpsState,
 ) -> Literal[
+    "request_approval",
     "execute_tools",
     "__end__",
 ]:
-    if state["pending_calls"]:
-        return "execute_tools"
+    pending_calls = state[
+        "pending_calls"
+    ]
 
-    return "__end__"
+    if not pending_calls:
+        return "__end__"
 
+    protected_calls = [
+        call
+        for call in pending_calls
+        if call.get("name")
+        == "change_station_status"
+    ]
+
+    if (
+        protected_calls
+        and state["station_context"]
+        is not None
+    ):
+        return "request_approval"
+
+    return "execute_tools"
+
+def request_approval_node(
+    state: ChargeOpsState,
+) -> dict[str, Any]:
+    pending_calls = state[
+        "pending_calls"
+    ]
+
+    if len(pending_calls) != 1:
+        raise RuntimeError(
+            "Protected operations require "
+            "exactly one pending tool call."
+        )
+
+    tool_call = pending_calls[0]
+
+    if (
+        tool_call["name"]
+        != "change_station_status"
+    ):
+        raise RuntimeError(
+            "Approval node received an "
+            "unsupported tool."
+        )
+
+    station = state[
+        "station_context"
+    ]
+
+    if station is None:
+        raise RuntimeError(
+            "Station context must be loaded "
+            "before approval."
+        )
+
+    arguments = (
+        StationStatusToolArguments
+        .model_validate_json(
+            tool_call["arguments"]
+        )
+    )
+
+    decision = interrupt(
+        {
+            "type": (
+                "station_status_change"
+            ),
+            "tool": (
+                "change_station_status"
+            ),
+            "action": (
+                "Change charging station "
+                "operational status"
+            ),
+            "station_id": (
+                station["station_id"]
+            ),
+            "station_name": (
+                station["name"]
+            ),
+            "current_status": (
+                station["status"]
+            ),
+            "requested_status": (
+                arguments.status
+            ),
+            "warning": (
+                "This action writes to the "
+                "operational database and changes "
+                "station state."
+            ),
+        }
+    )
+
+    if not isinstance(
+        decision,
+        bool,
+    ):
+        raise TypeError(
+            "Approval decision must be "
+            "true or false."
+        )
+
+    return {
+        "approval_decision": decision,
+    }
 
 # =================================================
 # Tool execution node
@@ -371,6 +482,117 @@ async def execute_tools_node(
             knowledge_retrieved = True
 
         # =========================================
+        # Protected station status change
+        # =========================================
+
+        elif (
+            tool_name
+            == "change_station_status"
+        ):
+            arguments = (
+                StationStatusToolArguments
+                .model_validate_json(
+                    arguments_json
+                )
+            )
+
+            if station_context is None:
+                tool_result = {
+                    "executed": False,
+                    "error": (
+                        "Station details must "
+                        "be loaded before changing "
+                        "station status."
+                    ),
+                }
+
+                tool_trace = ToolTrace(
+                    tool=tool_name,
+                    status="error",
+                    summary=(
+                        "Station context is "
+                        "not loaded."
+                    ),
+                )
+
+            elif (
+                state[
+                    "approval_decision"
+                ]
+                is None
+            ):
+                tool_result = {
+                    "executed": False,
+                    "error": (
+                        "Explicit operator approval "
+                        "is required."
+                    ),
+                }
+
+                tool_trace = ToolTrace(
+                    tool=tool_name,
+                    status="error",
+                    summary=(
+                        "Protected action was "
+                        "not approved."
+                    ),
+                )
+
+            elif not state[
+                "approval_decision"
+            ]:
+                tool_result = {
+                    "executed": False,
+                    "approved": False,
+                    "station_id": (
+                        station_context[
+                            "station_id"
+                        ]
+                    ),
+                    "current_status": (
+                        station_context[
+                            "status"
+                        ]
+                    ),
+                    "requested_status": (
+                        arguments.status
+                    ),
+                    "message": (
+                        "Operator rejected "
+                        "the status change."
+                    ),
+                }
+
+                tool_trace = ToolTrace(
+                    tool=tool_name,
+                    status="success",
+                    summary=(
+                        "Operator rejected the "
+                        f"requested change to "
+                        f"{arguments.status}. "
+                        "No database change "
+                        "was performed."
+                    ),
+                )
+
+            else:
+                (
+                    tool_result,
+                    station_context,
+                    tool_trace,
+                ) = (
+                    await execute_station_status_tool(
+                        session=session,
+                        station=(
+                            station_context
+                        ),
+                        requested_status=(
+                            arguments.status
+                        ),
+                    )
+                )
+
+        # =========================================
         # Diagnosis
         # =========================================
 
@@ -491,6 +713,7 @@ async def execute_tools_node(
             state["iteration_count"]
             + 1
         ),
+        "approval_decision": None,
     }
 
 
@@ -510,9 +733,17 @@ builder.add_node(
 )
 
 builder.add_node(
+    "request_approval",
+    request_approval_node,
+)
+
+
+builder.add_node(
     "execute_tools",
     execute_tools_node,
 )
+
+
 
 builder.add_edge(
     START,
@@ -523,6 +754,12 @@ builder.add_conditional_edges(
     "call_model",
     route_after_model,
 )
+
+builder.add_edge(
+    "request_approval",
+    "execute_tools",
+)
+
 
 builder.add_edge(
     "execute_tools",
@@ -561,7 +798,77 @@ def get_chargeops_graph() -> Any:
 # Public graph runner
 # =================================================
 
+def parse_graph_result(
+    result: dict[str, Any],
+) -> tuple[
+    str,
+    list[str],
+    list[ToolTrace],
+    dict[str, Any] | None,
+]:
+    interrupt_items = result.get(
+        "__interrupt__",
+        (),
+    )
 
+    approval_request: (
+        dict[str, Any] | None
+    ) = None
+
+    if interrupt_items:
+        interrupt_item = (
+            interrupt_items[0]
+        )
+
+        value = getattr(
+            interrupt_item,
+            "value",
+            None,
+        )
+
+        if isinstance(
+            value,
+            dict,
+        ):
+            approval_request = value
+
+    final_answer = cast(
+        str,
+        result.get(
+            "final_answer",
+            "",
+        ),
+    )
+
+    used_tools = cast(
+        list[str],
+        result.get(
+            "used_tools",
+            [],
+        ),
+    )
+
+    raw_traces = cast(
+        list[dict[str, Any]],
+        result.get(
+            "traces",
+            [],
+        ),
+    )
+
+    traces = [
+        ToolTrace.model_validate(
+            trace
+        )
+        for trace in raw_traces
+    ]
+
+    return (
+        final_answer,
+        used_tools,
+        traces,
+        approval_request,
+    )
 
 async def run_chargeops_graph(
     message: str,
@@ -572,6 +879,7 @@ async def run_chargeops_graph(
     str,
     list[str],
     list[ToolTrace],
+    dict[str, Any] | None,
 ]:
     graph = get_chargeops_graph()
 
@@ -670,6 +978,7 @@ async def run_chargeops_graph(
         "traces": [],
         "final_answer": "",
         "iteration_count": 0,
+        "approval_decision": None,
     }
 
     # =============================================
@@ -684,26 +993,49 @@ async def run_chargeops_graph(
         config=config,
     )
 
-    final_answer = cast(
-        str,
-        result["final_answer"],
+    raw_result = cast(
+        dict[str, Any],
+        result,
     )
 
-    used_tools = cast(
-        list[str],
-        result["used_tools"],
+    return parse_graph_result(
+        raw_result
     )
 
-    traces = [
-        ToolTrace.model_validate(
-            trace
-        )
-        for trace
-        in result["traces"]
-    ]
+async def resume_chargeops_graph(
+    thread_id: str,
+    approved: bool,
+    session: AsyncSession,
+) -> tuple[
+    str,
+    list[str],
+    list[ToolTrace],
+    dict[str, Any] | None,
+]:
+    graph = get_chargeops_graph()
 
-    return (
-        final_answer,
-        used_tools,
-        traces,
+    config = {
+        "configurable": {
+            "thread_id": thread_id,
+        },
+        "recursion_limit": 30,
+    }
+
+    result = await graph.ainvoke(
+        Command(
+            resume=approved
+        ),
+        context=AgentRuntimeContext(
+            session=session
+        ),
+        config=config,
+    )
+
+    raw_result = cast(
+        dict[str, Any],
+        result,
+    )
+
+    return parse_graph_result(
+        raw_result
     )

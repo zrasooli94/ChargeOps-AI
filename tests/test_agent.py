@@ -33,6 +33,7 @@ def test_agent_success() -> None:
                         ),
                     )
                 ],
+                None,
             )
         ),
     ) as mocked_agent:
@@ -129,6 +130,7 @@ def test_agent_normalizes_station_id() -> None:
                 "Station loaded.",
                 [],
                 [],
+                None,
             )
         ),
     ) as mocked_agent:
@@ -136,7 +138,9 @@ def test_agent_normalizes_station_id() -> None:
             "/agent/run",
             json={
                 "station_id": "  kl-205  ",
-                "message": "Tell me about this station.",
+                "message": (
+                    "Tell me about this station."
+                ),
             },
         )
 

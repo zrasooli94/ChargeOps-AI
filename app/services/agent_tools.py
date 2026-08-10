@@ -1,4 +1,8 @@
-from typing import Any, TypedDict
+from typing import (
+    Any,
+    Literal,
+    TypedDict,
+)
 
 from openai.types.responses import (
     FunctionToolParam,
@@ -23,6 +27,7 @@ from app.services.llm_service import (
 )
 from app.services.station_service import (
     get_station,
+    update_station_status,
 )
 from app.services.weather_service import (
     get_current_weather,
@@ -70,6 +75,14 @@ class KnowledgeToolArguments(BaseModel):
         default=None,
         ge=1,
     )
+
+class StationStatusToolArguments(
+    BaseModel
+):
+    status: Literal[
+        "active",
+        "maintenance",
+    ]
 
 
 # =================================================
@@ -178,6 +191,37 @@ KNOWLEDGE_TOOL: FunctionToolParam = {
     "strict": True,
 }
 
+STATION_STATUS_TOOL: FunctionToolParam = {
+    "type": "function",
+    "name": "change_station_status",
+    "description": (
+        "Change the selected EV charging station's "
+        "operational status. This is a protected "
+        "database write and requires explicit human "
+        "approval before execution."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "status": {
+                "type": "string",
+                "enum": [
+                    "active",
+                    "maintenance",
+                ],
+                "description": (
+                    "The requested new operational "
+                    "status for the station."
+                ),
+            }
+        },
+        "required": [
+            "status",
+        ],
+        "additionalProperties": False,
+    },
+    "strict": True,
+}
 
 DIAGNOSTIC_TOOL: FunctionToolParam = {
     "type": "function",
@@ -211,6 +255,7 @@ TOOLS: list[FunctionToolParam] = [
     INCIDENT_HISTORY_TOOL,
     WEATHER_TOOL,
     KNOWLEDGE_TOOL,
+    STATION_STATUS_TOOL,
     DIAGNOSTIC_TOOL,
 ]
 
@@ -241,6 +286,31 @@ AVAILABLE TOOLS:
 5. diagnose_charging_issue
    Performs structured fault diagnosis and records the diagnosis
    as an incident.
+
+6. change_station_status
+   Requests a change to the selected station's operational status.
+   This action requires explicit human approval before execution.
+
+STATION STATUS CHANGES:
+
+When the user explicitly asks to change the operational status of
+the selected station:
+
+1. Call get_station_details first.
+2. Call change_station_status with the requested status.
+3. Never claim the status was changed until the protected tool reports
+   that the operation was actually executed.
+4. Human approval is handled by the application workflow.
+5. Do not attempt to bypass or simulate approval.
+
+Valid operational statuses are:
+
+- active
+- maintenance
+
+Never call change_station_status merely as part of diagnosis.
+The user must explicitly request an operational status change.
+
 
 GENERAL QUESTIONS:
 
@@ -676,3 +746,90 @@ async def execute_diagnostic_tool(
     )
 
     return result, trace
+
+async def execute_station_status_tool(
+    session: AsyncSession,
+    station: StationContext,
+    requested_status: Literal[
+        "active",
+        "maintenance",
+    ],
+) -> tuple[
+    dict[str, Any],
+    StationContext,
+    ToolTrace,
+]:
+    previous_status = station[
+        "status"
+    ]
+
+    updated_station = (
+        await update_station_status(
+            session=session,
+            station_id=(
+                station[
+                    "station_id"
+                ]
+            ),
+            status=requested_status,
+        )
+    )
+
+    if updated_station is None:
+        raise RuntimeError(
+            "Station disappeared before "
+            "the status update could complete."
+        )
+
+    updated_context: StationContext = {
+        "station_id": (
+            updated_station.station_id
+        ),
+        "name": updated_station.name,
+        "charger_model": (
+            updated_station.charger_model
+        ),
+        "location": (
+            updated_station.location
+        ),
+        "latitude": (
+            updated_station.latitude
+        ),
+        "longitude": (
+            updated_station.longitude
+        ),
+        "status": (
+            updated_station.status
+        ),
+    }
+
+    result: dict[str, Any] = {
+        "executed": True,
+        "station_id": (
+            updated_station.station_id
+        ),
+        "previous_status": (
+            previous_status
+        ),
+        "new_status": (
+            updated_station.status
+        ),
+    }
+
+    trace = ToolTrace(
+        tool="change_station_status",
+        status="success",
+        summary=(
+            f"{updated_station.station_id} "
+            f"status changed from "
+            f"{previous_status} to "
+            f"{updated_station.status} "
+            f"after operator approval."
+        ),
+    )
+
+    return (
+        result,
+        updated_context,
+        trace,
+    )

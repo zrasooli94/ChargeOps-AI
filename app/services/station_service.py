@@ -25,3 +25,34 @@ async def get_station(
     )
 
     return result.scalar_one_or_none()
+
+async def update_station_status(
+    session: AsyncSession,
+    station_id: str,
+    status: str,
+) -> Station | None:
+    result = await session.execute(
+        select(
+            Station
+        ).where(
+            Station.station_id
+            == station_id
+        )
+    )
+
+    station = (
+        result.scalar_one_or_none()
+    )
+
+    if station is None:
+        return None
+
+    station.status = status
+
+    await session.commit()
+
+    await session.refresh(
+        station
+    )
+
+    return station

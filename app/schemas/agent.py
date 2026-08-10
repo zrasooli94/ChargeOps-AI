@@ -1,4 +1,6 @@
-from typing import Literal
+from typing import (
+    Literal,
+)
 from uuid import UUID
 
 from pydantic import (
@@ -11,11 +13,27 @@ from pydantic import (
 
 class ToolTrace(BaseModel):
     tool: str
+
     status: Literal[
         "success",
         "error",
     ]
+
     summary: str
+
+
+class AgentApprovalRequest(BaseModel):
+    type: str
+    tool: str
+    action: str
+
+    station_id: str
+    station_name: str
+
+    current_status: str
+    requested_status: str
+
+    warning: str
 
 
 class AgentRequest(BaseModel):
@@ -46,8 +64,22 @@ class AgentRequest(BaseModel):
         return value.strip().upper()
 
 
+class AgentResumeRequest(BaseModel):
+    thread_id: UUID
+    approved: bool
+
+
 class AgentResponse(BaseModel):
     thread_id: UUID
-    answer: str
+
+    answer: str = ""
+
     used_tools: list[str]
+
     trace: list[ToolTrace]
+
+    approval_required: bool = False
+
+    approval_request: (
+        AgentApprovalRequest | None
+    ) = None
