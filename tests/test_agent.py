@@ -10,6 +10,10 @@ client = TestClient(app)
 
 
 def test_agent_success() -> None:
+    test_thread_id = (
+        "550e8400-e29b-41d4-a716-446655440000"
+    )
+
     with patch(
         "app.api.agent.run_agent",
         new=AsyncMock(
@@ -31,7 +35,7 @@ def test_agent_success() -> None:
                 ],
             )
         ),
-    ):
+    ) as mocked_agent:
         response = client.post(
             "/agent/run",
             json={
@@ -39,6 +43,7 @@ def test_agent_success() -> None:
                 "message": (
                     "Tell me about this charging station."
                 ),
+                "thread_id": test_thread_id,
             },
         )
 
@@ -46,17 +51,55 @@ def test_agent_success() -> None:
 
     data = response.json()
 
-    assert data["station_id"] == "KL-205"
+    assert (
+        data["thread_id"]
+        == test_thread_id
+    )
+
+    assert (
+        data["answer"]
+        == "Station KL-205 is currently active."
+    )
 
     assert data["used_tools"] == [
         "get_station_details"
     ]
+
+    assert len(data["trace"]) == 1
 
     assert (
         data["trace"][0]["tool"]
         == "get_station_details"
     )
 
+    assert (
+        data["trace"][0]["status"]
+        == "success"
+    )
+
+    call = mocked_agent.await_args
+
+    assert call is not None
+
+    assert (
+        call.kwargs["station_id"]
+        == "KL-205"
+    )
+
+    assert (
+        call.kwargs["message"]
+        == "Tell me about this charging station."
+    )
+
+    assert (
+        call.kwargs["thread_id"]
+        == test_thread_id
+    )
+
+    assert (
+        call.kwargs["session"]
+        is not None
+    )
 
 def test_agent_failure() -> None:
     with patch(
