@@ -38,6 +38,38 @@ def check_backend() -> bool:
         return False
 
 
+@st.cache_data(
+    ttl=10
+)
+def get_agent_runs(
+    station_id: str | None = None,
+    limit: int = 100,
+) -> list[dict]:
+    params: dict[
+        str,
+        str | int,
+    ] = {
+        "limit": limit,
+    }
+
+    if station_id:
+        params[
+            "station_id"
+        ] = station_id
+
+    response = httpx.get(
+        (
+            f"{API_BASE_URL}"
+            "/observability/runs"
+        ),
+        params=params,
+        timeout=10.0,
+    )
+
+    response.raise_for_status()
+
+    return response.json()
+
 @st.cache_data(ttl=30)
 def get_stations() -> list[dict]:
     response = httpx.get(
@@ -562,13 +594,15 @@ st.divider()
     tab_agent,
     tab_incidents,
     tab_knowledge,
+    tab_observability,
     tab_system,
 ) = st.tabs(
     [
-        "🤖 AI Agent",
-        "📋 Incidents",
+        "🤖 Agent",
+        "🚨 Incidents",
         "📚 Knowledge Base",
-        "🏗 System",
+        "📊 Observability",
+        "⚙️ System",
     ]
 )
 
@@ -1682,6 +1716,273 @@ with tab_knowledge:
 # System tab
 # =================================================
 
+with tab_observability:
+    st.subheader(
+        "Agent Observability"
+    )
+
+    st.caption(
+        "Persistent execution telemetry "
+        "for ChargeOps AI."
+    )
+
+    try:
+        runs = get_agent_runs(
+            station_id=station_id,
+            limit=100,
+        )
+
+        if not runs:
+            st.info(
+                "No agent runs recorded "
+                "for this station yet."
+            )
+
+        else:
+            total_runs = len(
+                runs
+            )
+
+            completed_runs = sum(
+                1
+                for run in runs
+                if run["status"]
+                == "completed"
+            )
+
+            approval_runs = sum(
+                1
+                for run in runs
+                if run[
+                    "approval_required"
+                ]
+            )
+
+            latencies = [
+                run["latency_ms"]
+                for run in runs
+            ]
+
+            average_latency = (
+                sum(latencies)
+                / len(latencies)
+            )
+
+            total_tool_calls = sum(
+                len(
+                    run[
+                        "used_tools"
+                    ]
+                )
+                for run in runs
+            )
+
+            (
+                metric1,
+                metric2,
+                metric3,
+                metric4,
+            ) = st.columns(4)
+
+            metric1.metric(
+                "Runs",
+                total_runs,
+            )
+
+            metric2.metric(
+                "Completed",
+                completed_runs,
+            )
+
+            metric3.metric(
+                "Avg Latency",
+                (
+                    f"{average_latency:,.0f} ms"
+                ),
+            )
+
+            metric4.metric(
+                "Tool Calls",
+                total_tool_calls,
+            )
+
+            st.markdown(
+                "### Human Approval"
+            )
+
+            st.metric(
+                "Protected Runs",
+                approval_runs,
+            )
+
+            st.markdown(
+                "### Recent Agent Runs"
+            )
+
+            table_rows = []
+
+            for run in runs:
+                approval = "—"
+
+                if (
+                    run[
+                        "approval_decision"
+                    ]
+                    is True
+                ):
+                    approval = (
+                        "Approved"
+                    )
+
+                elif (
+                    run[
+                        "approval_decision"
+                    ]
+                    is False
+                ):
+                    approval = (
+                        "Rejected"
+                    )
+
+                elif run[
+                    "approval_required"
+                ]:
+                    approval = (
+                        "Pending"
+                    )
+
+                table_rows.append(
+                    {
+                        "Run ID": str(
+                            run["id"]
+                        )[:8],
+                        "Status": (
+                            run[
+                                "status"
+                            ]
+                        ),
+                        "Latency": (
+                            f"{run['latency_ms']} ms"
+                        ),
+                        "Tools": ", ".join(
+                            run[
+                                "used_tools"
+                            ]
+                        )
+                        or "None",
+                        "Approval": (
+                            approval
+                        ),
+                        "Started": (
+                            run[
+                                "started_at"
+                            ]
+                        ),
+                    }
+                )
+
+            st.dataframe(
+                table_rows,
+                use_container_width=True,
+                hide_index=True,
+            )
+
+            st.markdown(
+                "### Run Inspector"
+            )
+
+            run_options = {
+                (
+                    f"{str(run['id'])[:8]}"
+                    " — "
+                    f"{run['status']}"
+                    " — "
+                    f"{run['latency_ms']} ms"
+                ): run
+                for run in runs
+            }
+
+            selected_label = (
+                st.selectbox(
+                    "Select execution",
+                    options=list(
+                        run_options.keys()
+                    ),
+                )
+            )
+
+            selected_run = (
+                run_options[
+                    selected_label
+                ]
+            )
+
+            st.write(
+                "**Run ID:**",
+                selected_run["id"],
+            )
+
+            st.write(
+                "**Thread ID:**",
+                selected_run[
+                    "thread_id"
+                ],
+            )
+
+            st.write(
+                "**Model:**",
+                selected_run[
+                    "model"
+                ],
+            )
+
+            st.write(
+                "**User request:**"
+            )
+
+            st.code(
+                selected_run[
+                    "user_message"
+                ]
+            )
+
+            st.write(
+                "**Used tools:**",
+                selected_run[
+                    "used_tools"
+                ],
+            )
+
+            st.write(
+                "**Agent answer:**"
+            )
+
+            st.write(
+                selected_run[
+                    "answer"
+                ]
+                or "Workflow has not "
+                "completed yet."
+            )
+
+            with st.expander(
+                "Execution trace"
+            ):
+                st.json(
+                    selected_run[
+                        "trace"
+                    ]
+                )
+
+    except httpx.HTTPError as error:
+        st.error(
+            "Could not load "
+            "observability data."
+        )
+
+        st.caption(
+            str(error)
+        )
 
 with tab_system:
     st.subheader(

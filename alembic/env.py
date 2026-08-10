@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from app.core.config import settings
 from app.core.database import Base
+from app.models.agent_run import AgentRun  # noqa: F401
 from app.models.incident import Incident
 from app.models.knowledge import KnowledgeChunk
 from app.models.station import Station
@@ -27,6 +28,7 @@ _ = (
     Station,
     Incident,
     KnowledgeChunk,
+    
 )
 
 

@@ -888,6 +888,17 @@ async def run_chargeops_graph(
             "thread_id": thread_id,
         },
         "recursion_limit": 30,
+        "tags": [
+            "chargeops",
+            "agent",
+        ],
+        "metadata": {
+            "thread_id": thread_id,
+            "station_id": station_id,
+            "application": (
+                "chargeops-ai"
+            ),
+        },
     }
 
     # =============================================
@@ -1019,6 +1030,20 @@ async def resume_chargeops_graph(
             "thread_id": thread_id,
         },
         "recursion_limit": 30,
+        "tags": [
+            "chargeops",
+            "agent",
+            "hitl-resume",
+        ],
+        "metadata": {
+            "thread_id": thread_id,
+            "application": (
+                "chargeops-ai"
+            ),
+            "workflow": (
+                "human-approval-resume"
+            ),
+        },
     }
 
     result = await graph.ainvoke(

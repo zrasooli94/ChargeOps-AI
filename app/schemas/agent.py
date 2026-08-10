@@ -70,6 +70,8 @@ class AgentResumeRequest(BaseModel):
 
 
 class AgentResponse(BaseModel):
+    run_id: UUID
+    
     thread_id: UUID
 
     answer: str = ""
