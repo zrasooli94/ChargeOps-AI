@@ -7,7 +7,6 @@ from typing import (
 )
 
 from langgraph.graph import (
-    END,
     START,
     StateGraph,
 )
@@ -19,6 +18,9 @@ from openai.types.responses import (
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing_extensions import TypedDict
 
+from app.core.checkpointing import (
+    get_checkpointer,
+)
 from app.core.config import settings
 from app.core.openai_client import client
 from app.schemas.agent import ToolTrace
@@ -172,7 +174,7 @@ def route_after_model(
     if state["pending_calls"]:
         return "execute_tools"
 
-    return END
+    return "__end__"
 
 
 # =================================================
@@ -528,9 +530,31 @@ builder.add_edge(
 )
 
 
-chargeops_graph = builder.compile(
-    name="chargeops-agent",
-)
+_chargeops_graph: Any | None = None
+
+
+def build_chargeops_graph(
+    checkpointer: Any | None = None,
+) -> Any:
+    return builder.compile(
+        checkpointer=checkpointer,
+        name="chargeops-agent",
+    )
+
+
+def get_chargeops_graph() -> Any:
+    global _chargeops_graph
+
+    if _chargeops_graph is None:
+        _chargeops_graph = (
+            build_chargeops_graph(
+                checkpointer=(
+                    get_checkpointer()
+                )
+            )
+        )
+
+    return _chargeops_graph
 
 
 # =================================================
@@ -538,15 +562,71 @@ chargeops_graph = builder.compile(
 # =================================================
 
 
+
 async def run_chargeops_graph(
     message: str,
     station_id: str,
     session: AsyncSession,
+    thread_id: str,
 ) -> tuple[
     str,
     list[str],
     list[ToolTrace],
 ]:
+    graph = get_chargeops_graph()
+
+    config = {
+        "configurable": {
+            "thread_id": thread_id,
+        },
+        "recursion_limit": 30,
+    }
+
+    # =============================================
+    # Load previous thread memory
+    # =============================================
+
+    previous_snapshot = (
+        await graph.aget_state(
+            config
+        )
+    )
+
+    previous_values = (
+        previous_snapshot.values
+        or {}
+    )
+
+    previous_station_id = (
+        previous_values.get(
+            "station_id"
+        )
+    )
+
+    # A conversation is bound to one station.
+    if (
+        previous_station_id
+        and previous_station_id
+        != station_id
+    ):
+        raise RuntimeError(
+            "This conversation thread "
+            "belongs to a different "
+            "charging station."
+        )
+
+    previous_input_items = cast(
+        list[dict[str, Any]],
+        previous_values.get(
+            "input_items",
+            [],
+        ),
+    )
+
+    # =============================================
+    # Add new user turn
+    # =============================================
+
     user_item: ResponseInputItemParam = cast(
         ResponseInputItemParam,
         {
@@ -564,15 +644,24 @@ async def run_chargeops_graph(
         },
     )
 
+    conversation_items = [
+        *previous_input_items,
+        cast(
+            dict[str, Any],
+            user_item,
+        ),
+    ]
+
+    # =============================================
+    # Per-turn state
+    # =============================================
+
     initial_state: ChargeOpsState = {
         "station_id": station_id,
         "message": message,
-        "input_items": [
-            cast(
-                dict[str, Any],
-                user_item,
-            )
-        ],
+        "input_items": (
+            conversation_items
+        ),
         "pending_calls": [],
         "station_context": None,
         "knowledge_context": [],
@@ -583,14 +672,16 @@ async def run_chargeops_graph(
         "iteration_count": 0,
     }
 
-    result = await chargeops_graph.ainvoke(
+    # =============================================
+    # Continue this thread
+    # =============================================
+
+    result = await graph.ainvoke(
         initial_state,
         context=AgentRuntimeContext(
             session=session
         ),
-        config={
-            "recursion_limit": 30,
-        },
+        config=config,
     )
 
     final_answer = cast(
@@ -607,7 +698,8 @@ async def run_chargeops_graph(
         ToolTrace.model_validate(
             trace
         )
-        for trace in result["traces"]
+        for trace
+        in result["traces"]
     ]
 
     return (

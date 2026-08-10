@@ -1,11 +1,13 @@
 from app.agents.chargeops_graph import (
-    chargeops_graph,
+    build_chargeops_graph,
 )
 
 
 def main() -> None:
+    graph = build_chargeops_graph()
+
     print(
-        chargeops_graph
+        graph
         .get_graph()
         .draw_mermaid()
     )

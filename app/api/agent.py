@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import uuid4
 
 from fastapi import (
     APIRouter,
@@ -27,22 +28,44 @@ router = APIRouter(
     "/run",
     response_model=AgentResponse,
 )
-async def agent_run(
+async def run_chargeops_agent(
     request: AgentRequest,
     session: Annotated[
         AsyncSession,
         Depends(get_db),
     ],
 ) -> AgentResponse:
+    """
+    Run the ChargeOps LangGraph agent.
+
+    If the client supplies a thread_id,
+    the existing conversation is continued.
+
+    If no thread_id is supplied,
+    a new conversation thread is created.
+    """
+
+    thread_id = (
+        request.thread_id
+        or uuid4()
+    )
+
     try:
-        answer, used_tools, trace = await run_agent(
+        (
+            answer,
+            used_tools,
+            trace,
+        ) = await run_agent(
             message=request.message,
             station_id=request.station_id,
             session=session,
+            thread_id=str(
+                thread_id
+            ),
         )
 
         return AgentResponse(
-            station_id=request.station_id,
+            thread_id=thread_id,
             answer=answer,
             used_tools=used_tools,
             trace=trace,

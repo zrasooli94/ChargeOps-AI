@@ -1,4 +1,5 @@
 from typing import Literal
+from uuid import UUID
 
 from pydantic import (
     BaseModel,
@@ -6,6 +7,15 @@ from pydantic import (
     Field,
     field_validator,
 )
+
+
+class ToolTrace(BaseModel):
+    tool: str
+    status: Literal[
+        "success",
+        "error",
+    ]
+    summary: str
 
 
 class AgentRequest(BaseModel):
@@ -23,7 +33,11 @@ class AgentRequest(BaseModel):
         max_length=5000,
     )
 
-    @field_validator("station_id")
+    thread_id: UUID | None = None
+
+    @field_validator(
+        "station_id"
+    )
     @classmethod
     def normalize_station_id(
         cls,
@@ -32,19 +46,8 @@ class AgentRequest(BaseModel):
         return value.strip().upper()
 
 
-class ToolTrace(BaseModel):
-    tool: str
-
-    status: Literal[
-        "success",
-        "error",
-    ]
-
-    summary: str
-
-
 class AgentResponse(BaseModel):
-    station_id: str
+    thread_id: UUID
     answer: str
     used_tools: list[str]
     trace: list[ToolTrace]

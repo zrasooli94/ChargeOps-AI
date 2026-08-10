@@ -1,4 +1,5 @@
 import os
+from uuid import uuid4
 
 import httpx
 import streamlit as st
@@ -99,12 +100,14 @@ def update_incident_status(
 def run_agent(
     station_id: str,
     message: str,
+    thread_id: str,
 ) -> dict:
     response = httpx.post(
         f"{API_BASE_URL}/agent/run",
         json={
             "station_id": station_id,
             "message": message,
+            "thread_id": thread_id,
         },
         timeout=90.0,
     )
@@ -112,6 +115,7 @@ def run_agent(
     response.raise_for_status()
 
     return response.json()
+
 
 
 def upload_knowledge_document(
@@ -571,6 +575,55 @@ with tab_agent:
         f"Selected station: "
         f"**{station_id} — {station_name}**"
     )
+    
+    if (
+        "agent_thread_ids"
+        not in st.session_state
+    ):
+        st.session_state.agent_thread_ids = {}
+
+
+    if (
+        station_id
+        not in st.session_state.agent_thread_ids
+    ):
+        st.session_state.agent_thread_ids[
+            station_id
+        ] = str(
+            uuid4()
+        )
+
+
+    thread_id = (
+        st.session_state.agent_thread_ids[
+            station_id
+        ]
+    )
+    st.caption(
+        "Conversation thread: "
+        f"`{thread_id}`"
+    )
+    if st.button(
+        "➕ New Conversation",
+        key=(
+            f"new_conversation_"
+            f"{station_id}"
+        ),
+    ):
+        new_thread_id = str(
+            uuid4()
+        )
+
+        st.session_state.agent_thread_ids[
+            station_id
+        ] = new_thread_id
+
+        st.session_state.chat_histories[
+            new_thread_id
+        ] = []
+
+        st.rerun()
+
 
     if (
         "chat_histories"
@@ -579,16 +632,17 @@ with tab_agent:
         st.session_state.chat_histories = {}
 
     if (
-        station_id
+        thread_id
         not in st.session_state.chat_histories
     ):
         st.session_state.chat_histories[
-            station_id
+            thread_id
         ] = []
+
 
     messages = (
         st.session_state.chat_histories[
-            station_id
+            thread_id
         ]
     )
 
@@ -643,6 +697,7 @@ with tab_agent:
                 result = run_agent(
                     station_id=station_id,
                     message=prompt,
+                    thread_id=thread_id,
                 )
 
                 answer = result.get(
@@ -1460,42 +1515,23 @@ Streamlit Operations Dashboard
   │       └── pgvector
   │
   └── ChargeOps Agent — LangGraph
-              │
-              ↓
-          call_model
-              │
-          tool call?
-           /       \\
-         yes        no
-          ↓          ↓
-    execute_tools    END
           │
-          │
-          ├── get_station_details
+          ├── PostgreSQL Checkpointer
           │       ↓
-          │    PostgreSQL
-          │
-          ├── get_recent_incidents
+          │    thread_id
           │       ↓
-          │    PostgreSQL
+          │    Conversation State
           │
-          ├── get_station_weather
-          │       ↓
-          │    Weather API
+          ↓
+      call_model
           │
-          ├── search_knowledge_base
-          │       ↓
-          │    Embeddings + pgvector
-          │
-          └── diagnose_charging_issue
-                  ↓
-               OpenAI
-                  ↓
-              Save Incident
-                  ↓
-              PostgreSQL
-          │
-          └──────────────→ call_model
+      tool call?
+       /      \
+     yes       no
+      ↓         ↓
+execute_tools   END
+      │
+      └────────→ call_model
         """
     )
 
@@ -1533,6 +1569,9 @@ Streamlit Operations Dashboard
 - Runtime Context
 - RAG
 - Embeddings
+- PostgreSQL Checkpointing
+- Thread-scoped Memory
+- Persistent Conversation State
             """
         )
 

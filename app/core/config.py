@@ -26,6 +26,16 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+psycopg://chargeops:chargeops@localhost:5432/chargeops"
     )
+    
+    @property
+    def checkpoint_database_url(
+        self,
+    ) -> str:
+        return self.database_url.replace(
+            "postgresql+psycopg://",
+            "postgresql://",
+            1,
+        )
 
 
 settings = Settings()

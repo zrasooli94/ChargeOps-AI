@@ -1,5 +1,6 @@
 import json
 import logging
+from uuid import uuid4
 
 from langgraph.errors import (
     GraphRecursionError,
@@ -37,16 +38,24 @@ async def run_agent(
     message: str,
     station_id: str,
     session: AsyncSession,
+    thread_id: str | None = None,
 ) -> tuple[
     str,
     list[str],
     list[ToolTrace],
 ]:
     try:
+        resolved_thread_id = (
+            thread_id
+            or str(
+                uuid4()
+            )
+        )
         return await run_chargeops_graph(
             message=message,
             station_id=station_id,
             session=session,
+            thread_id=resolved_thread_id,
         )
 
     except (
