@@ -12,6 +12,10 @@ from fastapi import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth_dependencies import (
+    AdminUser,
+    ViewerUser,
+)
 from app.core.config import settings
 from app.core.database import get_db
 from app.schemas.knowledge import (
@@ -37,19 +41,30 @@ router = APIRouter(
 )
 
 
+# =================================================
+# Search knowledge
+#
+# Permission:
+# viewer+
+#
+# Viewer, operator and admin may search the
+# existing knowledge base.
+# =================================================
+
+
 @router.post(
     "/search",
     response_model=KnowledgeSearchResponse,
 )
 async def knowledge_search(
     request: KnowledgeSearchRequest,
+    _current_user: ViewerUser,
     session: Annotated[
         AsyncSession,
         Depends(get_db),
     ],
 ) -> KnowledgeSearchResponse:
     try:
-
         results = await search_knowledge(
             session=session,
             query=request.query,
@@ -85,12 +100,25 @@ async def knowledge_search(
         ) from error
 
 
+# =================================================
+# Upload knowledge document
+#
+# Permission:
+# admin only
+#
+# Uploading changes the knowledge available
+# to the RAG system, so operators/viewers must
+# not be able to perform this action.
+# =================================================
+
+
 @router.post(
     "/documents/upload",
     response_model=KnowledgeDocumentResponse,
     status_code=status.HTTP_201_CREATED,
 )
 async def upload_document(
+    _current_user: AdminUser,
     session: Annotated[
         AsyncSession,
         Depends(get_db),
@@ -148,6 +176,17 @@ async def upload_document(
         ) from error
 
 
+# =================================================
+# List knowledge documents
+#
+# Permission:
+# viewer+
+#
+# Reading document metadata is safe for all
+# authenticated ChargeOps roles.
+# =================================================
+
+
 @router.get(
     "/documents",
     response_model=list[
@@ -155,6 +194,7 @@ async def upload_document(
     ],
 )
 async def documents(
+    _current_user: ViewerUser,
     session: Annotated[
         AsyncSession,
         Depends(get_db),
@@ -177,12 +217,24 @@ async def documents(
     ]
 
 
+# =================================================
+# Delete knowledge document
+#
+# Permission:
+# admin only
+#
+# Deleting a document modifies the production
+# RAG knowledge base.
+# =================================================
+
+
 @router.delete(
     "/documents/{document_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def remove_document(
     document_id: int,
+    _current_user: AdminUser,
     session: Annotated[
         AsyncSession,
         Depends(get_db),

@@ -8,6 +8,10 @@ from fastapi import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth_dependencies import (
+    OperatorUser,
+    ViewerUser,
+)
 from app.core.database import get_db
 from app.schemas.incident import (
     IncidentResponse,
@@ -25,11 +29,24 @@ router = APIRouter(
 )
 
 
+# =================================================
+# List incidents
+#
+# Permission:
+# viewer+
+#
+# Incident history is read-only information.
+# =================================================
+
+
 @router.get(
     "",
-    response_model=list[IncidentResponse],
+    response_model=list[
+        IncidentResponse
+    ],
 )
 async def list_incidents(
+    _current_user: ViewerUser,
     session: Annotated[
         AsyncSession,
         Depends(get_db),
@@ -55,12 +72,21 @@ async def list_incidents(
     ]
 
 
+# =================================================
+# Get incident details
+#
+# Permission:
+# viewer+
+# =================================================
+
+
 @router.get(
     "/{incident_id}",
     response_model=IncidentResponse,
 )
 async def incident_details(
     incident_id: int,
+    _current_user: ViewerUser,
     session: Annotated[
         AsyncSession,
         Depends(get_db),
@@ -82,6 +108,17 @@ async def incident_details(
     )
 
 
+# =================================================
+# Change incident status
+#
+# Permission:
+# operator+
+#
+# This performs an operational database write,
+# so viewers are not permitted.
+# =================================================
+
+
 @router.patch(
     "/{incident_id}",
     response_model=IncidentResponse,
@@ -89,6 +126,7 @@ async def incident_details(
 async def change_incident_status(
     incident_id: int,
     request: IncidentStatusUpdate,
+    _current_user: OperatorUser,
     session: Annotated[
         AsyncSession,
         Depends(get_db),

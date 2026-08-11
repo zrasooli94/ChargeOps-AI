@@ -7,6 +7,7 @@ from unittest.mock import (
     patch,
 )
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -16,6 +17,10 @@ from app.models.knowledge import (
 from app.services.document_ingestion_service import (
     chunk_text,
     extract_text_file,
+)
+
+pytestmark = pytest.mark.usefixtures(
+    "authenticated_admin"
 )
 
 client = TestClient(

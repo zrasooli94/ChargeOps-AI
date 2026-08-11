@@ -1,9 +1,14 @@
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.models.station import Station
+
+pytestmark = pytest.mark.usefixtures(
+    "authenticated_admin"
+)
 
 client = TestClient(app)
 

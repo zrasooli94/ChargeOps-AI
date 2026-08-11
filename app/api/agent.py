@@ -1,5 +1,8 @@
 from time import perf_counter
-from typing import Annotated
+from typing import (
+    Annotated,
+    cast,
+)
 from uuid import uuid4
 
 from fastapi import (
@@ -9,6 +12,10 @@ from fastapi import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth_dependencies import (
+    OperatorUser,
+    ViewerUser,
+)
 from app.core.database import get_db
 from app.schemas.agent import (
     AgentApprovalRequest,
@@ -16,6 +23,7 @@ from app.schemas.agent import (
     AgentResponse,
     AgentResumeRequest,
 )
+from app.schemas.auth import UserRole
 from app.services.agent_service import (
     AgentServiceError,
     resume_agent,
@@ -38,6 +46,7 @@ router = APIRouter(
 )
 async def run_chargeops_agent(
     request: AgentRequest,
+    current_user: ViewerUser,
     session: Annotated[
         AsyncSession,
         Depends(get_db),
@@ -65,6 +74,13 @@ async def run_chargeops_agent(
             session=session,
             thread_id=str(
                 thread_id
+            ),
+            user_id=str(
+                current_user.id
+            ),
+            user_role=cast(
+                UserRole,
+                current_user.role,
             ),
         )
 
@@ -138,6 +154,7 @@ async def run_chargeops_agent(
 )
 async def resume_chargeops_agent(
     request: AgentResumeRequest,
+    current_user: OperatorUser,
     session: Annotated[
         AsyncSession,
         Depends(get_db),
@@ -158,6 +175,13 @@ async def resume_chargeops_agent(
                 request.approved
             ),
             session=session,
+            user_id=str(
+                current_user.id
+            ),
+            user_role=cast(
+                UserRole,
+                current_user.role,
+            ),
         )
 
         completed_run = (

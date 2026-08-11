@@ -2,6 +2,7 @@ from datetime import datetime
 from unittest.mock import AsyncMock, patch
 from uuid import UUID
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -11,6 +12,10 @@ from app.schemas.analysis import (
     DiagnosticStep,
 )
 from app.services.llm_service import LLMServiceError
+
+pytestmark = pytest.mark.usefixtures(
+    "authenticated_admin"
+)
 
 client = TestClient(app)
 

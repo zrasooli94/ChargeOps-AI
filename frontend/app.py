@@ -38,10 +38,109 @@ def check_backend() -> bool:
         return False
 
 
+def clear_auth_session() -> None:
+    keys_to_clear = (
+        "access_token",
+        "current_user",
+        "agent_thread_ids",
+        "pending_approvals",
+        "chat_histories",
+    )
+
+    for key in keys_to_clear:
+        st.session_state.pop(
+            key,
+            None,
+        )
+
+
+def login_user(
+    email: str,
+    password: str,
+) -> str:
+    response = httpx.post(
+        f"{API_BASE_URL}/auth/login",
+        data={
+            "username": email,
+            "password": password,
+        },
+        timeout=10.0,
+    )
+
+    response.raise_for_status()
+
+    payload = response.json()
+
+    return str(
+        payload["access_token"]
+    )
+
+
+def get_current_user(
+    access_token: str,
+) -> dict:
+    response = httpx.get(
+        f"{API_BASE_URL}/auth/me",
+        headers={
+            "Authorization": (
+                f"Bearer {access_token}"
+            ),
+        },
+        timeout=10.0,
+    )
+
+    response.raise_for_status()
+
+    return response.json()
+
+
+def authenticated_request(
+    method: str,
+    path: str,
+    access_token: str,
+    timeout: float,
+    **kwargs,
+) -> httpx.Response:
+    headers = dict(
+        kwargs.pop(
+            "headers",
+            {},
+        )
+    )
+
+    headers["Authorization"] = (
+        f"Bearer {access_token}"
+    )
+
+    response = httpx.request(
+        method=method,
+        url=f"{API_BASE_URL}{path}",
+        headers=headers,
+        timeout=timeout,
+        **kwargs,
+    )
+
+    if response.status_code == 401:
+        clear_auth_session()
+        st.cache_data.clear()
+
+        st.warning(
+            "Your ChargeOps session expired. "
+            "Please sign in again."
+        )
+
+        st.rerun()
+
+    response.raise_for_status()
+
+    return response
+
+
 @st.cache_data(
     ttl=10
 )
 def get_agent_runs(
+    access_token: str,
     station_id: str | None = None,
     limit: int = 100,
 ) -> list[dict]:
@@ -57,37 +156,40 @@ def get_agent_runs(
             "station_id"
         ] = station_id
 
-    response = httpx.get(
-        (
-            f"{API_BASE_URL}"
-            "/observability/runs"
-        ),
+    response = authenticated_request(
+        method="GET",
+        path="/observability/runs",
+        access_token=access_token,
         params=params,
         timeout=10.0,
     )
 
-    response.raise_for_status()
-
     return response.json()
 
+
 @st.cache_data(ttl=30)
-def get_stations() -> list[dict]:
-    response = httpx.get(
-        f"{API_BASE_URL}/stations",
+def get_stations(
+    access_token: str,
+) -> list[dict]:
+    response = authenticated_request(
+        method="GET",
+        path="/stations",
+        access_token=access_token,
         timeout=5.0,
     )
-
-    response.raise_for_status()
 
     return response.json()
 
 
 @st.cache_data(ttl=10)
 def get_incidents(
+    access_token: str,
     station_id: str,
 ) -> list[dict]:
-    response = httpx.get(
-        f"{API_BASE_URL}/incidents",
+    response = authenticated_request(
+        method="GET",
+        path="/incidents",
+        access_token=access_token,
         params={
             "station_id": station_id,
             "limit": 100,
@@ -95,17 +197,19 @@ def get_incidents(
         timeout=5.0,
     )
 
-    response.raise_for_status()
-
     return response.json()
 
+
 def run_agent(
+    access_token: str,
     station_id: str,
     message: str,
     thread_id: str,
 ) -> dict:
-    response = httpx.post(
-        f"{API_BASE_URL}/agent/run",
+    response = authenticated_request(
+        method="POST",
+        path="/agent/run",
+        access_token=access_token,
         json={
             "station_id": station_id,
             "message": message,
@@ -114,17 +218,18 @@ def run_agent(
         timeout=90.0,
     )
 
-    response.raise_for_status()
-
     return response.json()
 
 
 def resume_agent(
+    access_token: str,
     thread_id: str,
     approved: bool,
 ) -> dict:
-    response = httpx.post(
-        f"{API_BASE_URL}/agent/resume",
+    response = authenticated_request(
+        method="POST",
+        path="/agent/resume",
+        access_token=access_token,
         json={
             "thread_id": thread_id,
             "approved": approved,
@@ -132,52 +237,57 @@ def resume_agent(
         timeout=90.0,
     )
 
-    response.raise_for_status()
-
     return response.json()
 
 
-
 @st.cache_data(ttl=15)
-def get_knowledge_documents() -> list[dict]:
-    response = httpx.get(
-        f"{API_BASE_URL}/knowledge/documents",
+def get_knowledge_documents(
+    access_token: str,
+) -> list[dict]:
+    response = authenticated_request(
+        method="GET",
+        path="/knowledge/documents",
+        access_token=access_token,
         timeout=10.0,
     )
-
-    response.raise_for_status()
 
     return response.json()
 
 
 def update_incident_status(
+    access_token: str,
     incident_id: int,
     status: str,
 ) -> dict:
-    response = httpx.patch(
-        f"{API_BASE_URL}/incidents/{incident_id}",
+    response = authenticated_request(
+        method="PATCH",
+        path=(
+            f"/incidents/{incident_id}"
+        ),
+        access_token=access_token,
         json={
             "status": status,
         },
         timeout=5.0,
     )
 
-    response.raise_for_status()
-
     return response.json()
 
 
-
-
 def upload_knowledge_document(
+    access_token: str,
     file_name: str,
     file_type: str,
     file_content: bytes,
     title: str,
     category: str,
 ) -> dict:
-    response = httpx.post(
-        f"{API_BASE_URL}/knowledge/documents/upload",
+    response = authenticated_request(
+        method="POST",
+        path=(
+            "/knowledge/documents/upload"
+        ),
+        access_token=access_token,
         files={
             "file": (
                 file_name,
@@ -192,39 +302,39 @@ def upload_knowledge_document(
         timeout=120.0,
     )
 
-    response.raise_for_status()
-
     return response.json()
 
 
 def delete_knowledge_document(
+    access_token: str,
     document_id: int,
 ) -> None:
-    response = httpx.delete(
-        (
-            f"{API_BASE_URL}/knowledge/documents/"
+    authenticated_request(
+        method="DELETE",
+        path=(
+            "/knowledge/documents/"
             f"{document_id}"
         ),
+        access_token=access_token,
         timeout=10.0,
     )
 
-    response.raise_for_status()
-
 
 def search_knowledge(
+    access_token: str,
     query: str,
     limit: int,
 ) -> dict:
-    response = httpx.post(
-        f"{API_BASE_URL}/knowledge/search",
+    response = authenticated_request(
+        method="POST",
+        path="/knowledge/search",
+        access_token=access_token,
         json={
             "query": query,
             "limit": limit,
         },
         timeout=60.0,
     )
-
-    response.raise_for_status()
 
     return response.json()
 
@@ -361,12 +471,165 @@ if not check_backend():
 
 
 # =================================================
+# Authentication
+# =================================================
+
+
+access_token = st.session_state.get(
+    "access_token"
+)
+
+if not access_token:
+    st.subheader(
+        "🔐 Sign in to ChargeOps"
+    )
+
+    st.write(
+        "Use your ChargeOps account to access "
+        "the operations dashboard."
+    )
+
+    with st.form(
+        "chargeops_login_form"
+    ):
+        email = st.text_input(
+            "Email",
+            placeholder=(
+                "operator@chargeops.local"
+            ),
+        )
+
+        password = st.text_input(
+            "Password",
+            type="password",
+        )
+
+        login_submitted = (
+            st.form_submit_button(
+                "Sign in",
+                use_container_width=True,
+            )
+        )
+
+    if login_submitted:
+        if not email.strip() or not password:
+            st.warning(
+                "Enter your email and password."
+            )
+
+        else:
+            try:
+                token = login_user(
+                    email=email.strip(),
+                    password=password,
+                )
+
+                user = get_current_user(
+                    token
+                )
+
+                st.session_state[
+                    "access_token"
+                ] = token
+
+                st.session_state[
+                    "current_user"
+                ] = user
+
+                st.cache_data.clear()
+                st.rerun()
+
+            except (
+                httpx.HTTPStatusError
+            ) as error:
+                if (
+                    error.response.status_code
+                    == 401
+                ):
+                    st.error(
+                        "Incorrect email or password."
+                    )
+
+                else:
+                    show_http_error(
+                        error
+                    )
+
+            except httpx.HTTPError as error:
+                st.error(
+                    "Could not connect to the "
+                    "ChargeOps authentication service."
+                )
+
+                st.caption(
+                    str(error)
+                )
+
+    st.stop()
+
+
+try:
+    current_user = get_current_user(
+        access_token
+    )
+
+    st.session_state[
+        "current_user"
+    ] = current_user
+
+except httpx.HTTPStatusError as error:
+    if error.response.status_code == 401:
+        clear_auth_session()
+        st.cache_data.clear()
+
+        st.warning(
+            "Your ChargeOps session expired. "
+            "Please sign in again."
+        )
+
+        st.rerun()
+
+    show_http_error(
+        error
+    )
+    st.stop()
+
+except httpx.HTTPError as error:
+    st.error(
+        "Could not validate your ChargeOps session."
+    )
+
+    st.caption(
+        str(error)
+    )
+
+    st.stop()
+
+
+user_role = str(
+    current_user.get(
+        "role",
+        "viewer",
+    )
+)
+
+is_operator = user_role in {
+    "operator",
+    "admin",
+}
+
+is_admin = user_role == "admin"
+
+
+# =================================================
 # Load stations
 # =================================================
 
 
 try:
-    stations = get_stations()
+    stations = get_stations(
+        access_token
+    )
 
 except httpx.HTTPError as error:
     st.error(
@@ -394,6 +657,31 @@ if not stations:
 
 
 with st.sidebar:
+    st.header(
+        "👤 Signed In"
+    )
+
+    st.write(
+        current_user.get(
+            "email",
+            "Unknown user",
+        )
+    )
+
+    st.caption(
+        f"Role: {user_role.title()}"
+    )
+
+    if st.button(
+        "🚪 Log out",
+        use_container_width=True,
+    ):
+        clear_auth_session()
+        st.cache_data.clear()
+        st.rerun()
+
+    st.divider()
+
     st.header(
         "⚡ Station Context"
     )
@@ -512,7 +800,8 @@ with st.sidebar:
 
 try:
     incidents = get_incidents(
-        station_id
+        access_token,
+        station_id,
     )
 
 except httpx.HTTPError:
@@ -521,7 +810,9 @@ except httpx.HTTPError:
 
 try:
     knowledge_documents = (
-        get_knowledge_documents()
+        get_knowledge_documents(
+            access_token
+        )
     )
 
 except httpx.HTTPError:
@@ -628,6 +919,13 @@ with tab_agent:
         f"Selected station: "
         f"**{station_id} — {station_name}**"
     )
+
+    if not is_operator:
+        st.caption(
+            "Viewer mode: safe read-only agent queries "
+            "are available. Operational diagnosis and "
+            "status-changing actions are blocked by RBAC."
+        )
     
     if (
         "agent_thread_ids"
@@ -739,7 +1037,7 @@ with tab_agent:
     )
     
     
-    if pending_approval:
+    if pending_approval and is_operator:
         st.warning(
             "⚠️ Protected Operation "
             "Requires Approval"
@@ -789,6 +1087,7 @@ with tab_agent:
                     "Resuming approved workflow..."
                 ):
                     result = resume_agent(
+                        access_token=access_token,
                         thread_id=thread_id,
                         approved=True,
                     )
@@ -844,6 +1143,7 @@ with tab_agent:
                     "Cancelling protected action..."
                 ):
                     result = resume_agent(
+                        access_token=access_token,
                         thread_id=thread_id,
                         approved=False,
                     )
@@ -901,6 +1201,7 @@ with tab_agent:
         ):
             try:
                 result = run_agent(
+                    access_token=access_token,
                     station_id=station_id,
                     message=prompt,
                     thread_id=thread_id,
@@ -1174,88 +1475,96 @@ with tab_incidents:
 
                 st.divider()
 
-                st.markdown(
-                    "### Incident Lifecycle"
-                )
-
-                valid_statuses = [
-                    "open",
-                    "investigating",
-                    "resolved",
-                ]
-
-                current_index = (
-                    valid_statuses.index(
-                        status
+                if is_operator:
+                    st.markdown(
+                        "### Incident Lifecycle"
                     )
-                    if status
-                    in valid_statuses
-                    else 0
-                )
 
-                new_status = st.selectbox(
-                    "Status",
-                    valid_statuses,
-                    index=current_index,
-                    format_func=lambda value: (
-                        value.title()
-                    ),
-                    key=(
-                        f"incident_status_"
-                        f"{incident_id}"
-                    ),
-                )
+                    valid_statuses = [
+                        "open",
+                        "investigating",
+                        "resolved",
+                    ]
 
-                if st.button(
-                    "Update Status",
-                    key=(
-                        f"update_incident_"
-                        f"{incident_id}"
-                    ),
-                ):
-                    if (
-                        new_status
-                        == status
-                    ):
-                        st.info(
-                            "Incident already has "
-                            "this status."
+                    current_index = (
+                        valid_statuses.index(
+                            status
                         )
+                        if status
+                        in valid_statuses
+                        else 0
+                    )
 
-                    else:
-                        try:
-                            update_incident_status(
-                                incident_id=incident_id,
-                                status=new_status,
+                    new_status = st.selectbox(
+                        "Status",
+                        valid_statuses,
+                        index=current_index,
+                        format_func=lambda value: (
+                            value.title()
+                        ),
+                        key=(
+                            f"incident_status_"
+                            f"{incident_id}"
+                        ),
+                    )
+
+                    if st.button(
+                        "Update Status",
+                        key=(
+                            f"update_incident_"
+                            f"{incident_id}"
+                        ),
+                    ):
+                        if (
+                            new_status
+                            == status
+                        ):
+                            st.info(
+                                "Incident already has "
+                                "this status."
                             )
 
-                            st.cache_data.clear()
+                        else:
+                            try:
+                                update_incident_status(
+                                    access_token=access_token,
+                                    incident_id=incident_id,
+                                    status=new_status,
+                                )
 
-                            st.success(
-                                f"Incident "
-                                f"#{incident_id} "
-                                f"updated."
-                            )
+                                st.cache_data.clear()
 
-                            st.rerun()
+                                st.success(
+                                    f"Incident "
+                                    f"#{incident_id} "
+                                    f"updated."
+                                )
 
-                        except (
-                            httpx.HTTPStatusError
-                        ) as error:
-                            show_http_error(
-                                error
-                            )
+                                st.rerun()
 
-                        except httpx.HTTPError as error:
-                            st.error(
-                                "Could not update "
-                                "incident status."
-                            )
+                            except (
+                                httpx.HTTPStatusError
+                            ) as error:
+                                show_http_error(
+                                    error
+                                )
 
-                            st.caption(
-                                str(error)
-                            )
+                            except httpx.HTTPError as error:
+                                st.error(
+                                    "Could not update "
+                                    "incident status."
+                                )
 
+                                st.caption(
+                                    str(error)
+                                )
+
+                else:
+                    st.caption(
+                        "Read-only incident view. "
+                        "Operator or admin access is required "
+                        "to change incident status."
+                    )
 
 # =================================================
 # Knowledge Base tab
@@ -1264,15 +1573,27 @@ with tab_incidents:
 
 with tab_knowledge:
     st.subheader(
-        "Knowledge Base Management"
+        
+            "Knowledge Base Management"
+            if is_admin
+            else "Knowledge Base"
+        
     )
 
-    st.write(
-        "Upload technical manuals and operational "
-        "documents. ChargeOps automatically extracts "
-        "the text, chunks it, creates embeddings, "
-        "and stores the vectors in PostgreSQL."
-    )
+    if is_admin:
+        st.write(
+            "Upload technical manuals and operational "
+            "documents. ChargeOps automatically extracts "
+            "the text, chunks it, creates embeddings, "
+            "and stores the vectors in PostgreSQL."
+        )
+
+    else:
+        st.write(
+            "Search and review the ChargeOps technical "
+            "knowledge base. Document upload and deletion "
+            "are restricted to administrators."
+        )
 
     total_documents = len(
         knowledge_documents
@@ -1305,137 +1626,146 @@ with tab_knowledge:
 
     st.divider()
 
-    # ---------------------------------------------
-    # Upload
-    # ---------------------------------------------
+    if is_admin:
+        # ---------------------------------------------
+        # Upload
+        # ---------------------------------------------
 
-    st.markdown(
-        "### 📤 Upload Document"
-    )
-
-    st.caption(
-        "Supported formats: PDF, TXT and Markdown. "
-        "Maximum file size: 10 MB."
-    )
-
-    with st.form(
-        "knowledge_upload_form",
-        clear_on_submit=True,
-    ):
-        uploaded_file = st.file_uploader(
-            "Choose technical document",
-            type=[
-                "pdf",
-                "txt",
-                "md",
-            ],
+        st.markdown(
+            "### 📤 Upload Document"
         )
 
-        upload_title = st.text_input(
-            "Document title",
-            placeholder=(
-                "Example: ABB Terra 54 "
-                "Installation Manual"
-            ),
+        st.caption(
+            "Supported formats: PDF, TXT and Markdown. "
+            "Maximum file size: 10 MB."
         )
 
-        upload_category = st.text_input(
-            "Category",
-            value="manual",
-            placeholder=(
-                "manual, networking, hardware..."
-            ),
-        )
-
-        upload_submitted = (
-            st.form_submit_button(
-                "Upload and Index",
-                use_container_width=True,
-            )
-        )
-
-    if upload_submitted:
-        if uploaded_file is None:
-            st.warning(
-                "Choose a document first."
+        with st.form(
+            "knowledge_upload_form",
+            clear_on_submit=True,
+        ):
+            uploaded_file = st.file_uploader(
+                "Choose technical document",
+                type=[
+                    "pdf",
+                    "txt",
+                    "md",
+                ],
             )
 
-        else:
-            file_title = (
-                upload_title.strip()
-                or uploaded_file.name
+            upload_title = st.text_input(
+                "Document title",
+                placeholder=(
+                    "Example: ABB Terra 54 "
+                    "Installation Manual"
+                ),
             )
 
-            category = (
-                upload_category.strip()
-                or "manual"
+            upload_category = st.text_input(
+                "Category",
+                value="manual",
+                placeholder=(
+                    "manual, networking, hardware..."
+                ),
             )
 
-            with st.spinner(
-                "Extracting text, creating chunks "
-                "and generating embeddings..."
-            ):
-                try:
-                    result = (
-                        upload_knowledge_document(
-                            file_name=(
-                                uploaded_file.name
-                            ),
-                            file_type=(
-                                uploaded_file.type
-                                or (
-                                    "application/"
-                                    "octet-stream"
-                                )
-                            ),
-                            file_content=(
-                                uploaded_file
-                                .getvalue()
-                            ),
-                            title=file_title,
-                            category=category,
-                        )
-                    )
+            upload_submitted = (
+                st.form_submit_button(
+                    "Upload and Index",
+                    use_container_width=True,
+                )
+            )
 
-                    st.success(
-                        f"Indexed "
-                        f"'{result['title']}' "
-                        f"with "
-                        f"{result['chunk_count']} "
-                        f"chunk(s)."
-                    )
+        if upload_submitted:
+            if uploaded_file is None:
+                st.warning(
+                    "Choose a document first."
+                )
 
-                    st.cache_data.clear()
+            else:
+                file_title = (
+                    upload_title.strip()
+                    or uploaded_file.name
+                )
 
-                    st.rerun()
+                category = (
+                    upload_category.strip()
+                    or "manual"
+                )
 
-                except (
-                    httpx.HTTPStatusError
-                ) as error:
-                    if (
-                        error.response.status_code
-                        == 409
-                    ):
-                        st.warning(
-                            "This document is already "
-                            "in the knowledge base."
+                with st.spinner(
+                    "Extracting text, creating chunks "
+                    "and generating embeddings..."
+                ):
+                    try:
+                        result = (
+                            upload_knowledge_document(
+                                access_token=access_token,
+                                file_name=(
+                                    uploaded_file.name
+                                ),
+                                file_type=(
+                                    uploaded_file.type
+                                    or (
+                                        "application/"
+                                        "octet-stream"
+                                    )
+                                ),
+                                file_content=(
+                                    uploaded_file
+                                    .getvalue()
+                                ),
+                                title=file_title,
+                                category=category,
+                            )
                         )
 
-                    else:
-                        show_http_error(
-                            error
+                        st.success(
+                            f"Indexed "
+                            f"'{result['title']}' "
+                            f"with "
+                            f"{result['chunk_count']} "
+                            f"chunk(s)."
                         )
 
-                except httpx.HTTPError as error:
-                    st.error(
-                        "Document upload failed."
-                    )
+                        st.cache_data.clear()
 
-                    st.caption(
-                        str(error)
-                    )
+                        st.rerun()
 
-    st.divider()
+                    except (
+                        httpx.HTTPStatusError
+                    ) as error:
+                        if (
+                            error.response.status_code
+                            == 409
+                        ):
+                            st.warning(
+                                "This document is already "
+                                "in the knowledge base."
+                            )
+
+                        else:
+                            show_http_error(
+                                error
+                            )
+
+                    except httpx.HTTPError as error:
+                        st.error(
+                            "Document upload failed."
+                        )
+
+                        st.caption(
+                            str(error)
+                        )
+
+        st.divider()
+
+
+    else:
+        st.info(
+            "🔒 Uploading and indexing knowledge documents "
+            "requires the admin role."
+        )
 
     # ---------------------------------------------
     # Semantic Search
@@ -1492,6 +1822,7 @@ with tab_knowledge:
                 try:
                     search_response = (
                         search_knowledge(
+                            access_token=access_token,
                             query=(
                                 knowledge_query
                                 .strip()
@@ -1669,47 +2000,55 @@ with tab_knowledge:
 
                 st.divider()
 
-                st.warning(
-                    "Deleting this document also "
-                    "removes all of its vector chunks."
-                )
+                if is_admin:
+                    st.warning(
+                        "Deleting this document also "
+                        "removes all of its vector chunks."
+                    )
 
-                if st.button(
-                    "🗑 Delete Document",
-                    key=(
-                        f"delete_document_"
-                        f"{document_id}"
-                    ),
-                ):
-                    try:
-                        delete_knowledge_document(
-                            document_id
-                        )
+                    if st.button(
+                        "🗑 Delete Document",
+                        key=(
+                            f"delete_document_"
+                            f"{document_id}"
+                        ),
+                    ):
+                        try:
+                            delete_knowledge_document(
+                                access_token=access_token,
+                                document_id=document_id,
+                            )
 
-                        st.cache_data.clear()
+                            st.cache_data.clear()
 
-                        st.success(
-                            f"Deleted '{title}'."
-                        )
+                            st.success(
+                                f"Deleted '{title}'."
+                            )
 
-                        st.rerun()
+                            st.rerun()
 
-                    except (
-                        httpx.HTTPStatusError
-                    ) as error:
-                        show_http_error(
-                            error
-                        )
+                        except (
+                            httpx.HTTPStatusError
+                        ) as error:
+                            show_http_error(
+                                error
+                            )
 
-                    except httpx.HTTPError as error:
-                        st.error(
-                            "Could not delete "
-                            "the document."
-                        )
+                        except httpx.HTTPError as error:
+                            st.error(
+                                "Could not delete "
+                                "the document."
+                            )
 
-                        st.caption(
-                            str(error)
-                        )
+                            st.caption(
+                                str(error)
+                            )
+
+                else:
+                    st.caption(
+                        "Document deletion is restricted "
+                        "to administrators."
+                    )
 
 
 # =================================================
@@ -1717,272 +2056,280 @@ with tab_knowledge:
 # =================================================
 
 with tab_observability:
-    st.subheader(
-        "Agent Observability"
-    )
-
-    st.caption(
-        "Persistent execution telemetry "
-        "for ChargeOps AI."
-    )
-
-    try:
-        runs = get_agent_runs(
-            station_id=station_id,
-            limit=100,
+    if not is_operator:
+        st.info(
+            "🔒 Observability is available to "
+            "operators and administrators."
         )
 
-        if not runs:
-            st.info(
-                "No agent runs recorded "
-                "for this station yet."
-            )
-
-        else:
-            total_runs = len(
-                runs
-            )
-
-            completed_runs = sum(
-                1
-                for run in runs
-                if run["status"]
-                == "completed"
-            )
-
-            approval_runs = sum(
-                1
-                for run in runs
-                if run[
-                    "approval_required"
-                ]
-            )
-
-            latencies = [
-                run["latency_ms"]
-                for run in runs
-            ]
-
-            average_latency = (
-                sum(latencies)
-                / len(latencies)
-            )
-
-            total_tool_calls = sum(
-                len(
-                    run[
-                        "used_tools"
-                    ]
-                )
-                for run in runs
-            )
-
-            (
-                metric1,
-                metric2,
-                metric3,
-                metric4,
-            ) = st.columns(4)
-
-            metric1.metric(
-                "Runs",
-                total_runs,
-            )
-
-            metric2.metric(
-                "Completed",
-                completed_runs,
-            )
-
-            metric3.metric(
-                "Avg Latency",
-                (
-                    f"{average_latency:,.0f} ms"
-                ),
-            )
-
-            metric4.metric(
-                "Tool Calls",
-                total_tool_calls,
-            )
-
-            st.markdown(
-                "### Human Approval"
-            )
-
-            st.metric(
-                "Protected Runs",
-                approval_runs,
-            )
-
-            st.markdown(
-                "### Recent Agent Runs"
-            )
-
-            table_rows = []
-
-            for run in runs:
-                approval = "—"
-
-                if (
-                    run[
-                        "approval_decision"
-                    ]
-                    is True
-                ):
-                    approval = (
-                        "Approved"
-                    )
-
-                elif (
-                    run[
-                        "approval_decision"
-                    ]
-                    is False
-                ):
-                    approval = (
-                        "Rejected"
-                    )
-
-                elif run[
-                    "approval_required"
-                ]:
-                    approval = (
-                        "Pending"
-                    )
-
-                table_rows.append(
-                    {
-                        "Run ID": str(
-                            run["id"]
-                        )[:8],
-                        "Status": (
-                            run[
-                                "status"
-                            ]
-                        ),
-                        "Latency": (
-                            f"{run['latency_ms']} ms"
-                        ),
-                        "Tools": ", ".join(
-                            run[
-                                "used_tools"
-                            ]
-                        )
-                        or "None",
-                        "Approval": (
-                            approval
-                        ),
-                        "Started": (
-                            run[
-                                "started_at"
-                            ]
-                        ),
-                    }
-                )
-
-            st.dataframe(
-                table_rows,
-                use_container_width=True,
-                hide_index=True,
-            )
-
-            st.markdown(
-                "### Run Inspector"
-            )
-
-            run_options = {
-                (
-                    f"{str(run['id'])[:8]}"
-                    " — "
-                    f"{run['status']}"
-                    " — "
-                    f"{run['latency_ms']} ms"
-                ): run
-                for run in runs
-            }
-
-            selected_label = (
-                st.selectbox(
-                    "Select execution",
-                    options=list(
-                        run_options.keys()
-                    ),
-                )
-            )
-
-            selected_run = (
-                run_options[
-                    selected_label
-                ]
-            )
-
-            st.write(
-                "**Run ID:**",
-                selected_run["id"],
-            )
-
-            st.write(
-                "**Thread ID:**",
-                selected_run[
-                    "thread_id"
-                ],
-            )
-
-            st.write(
-                "**Model:**",
-                selected_run[
-                    "model"
-                ],
-            )
-
-            st.write(
-                "**User request:**"
-            )
-
-            st.code(
-                selected_run[
-                    "user_message"
-                ]
-            )
-
-            st.write(
-                "**Used tools:**",
-                selected_run[
-                    "used_tools"
-                ],
-            )
-
-            st.write(
-                "**Agent answer:**"
-            )
-
-            st.write(
-                selected_run[
-                    "answer"
-                ]
-                or "Workflow has not "
-                "completed yet."
-            )
-
-            with st.expander(
-                "Execution trace"
-            ):
-                st.json(
-                    selected_run[
-                        "trace"
-                    ]
-                )
-
-    except httpx.HTTPError as error:
-        st.error(
-            "Could not load "
-            "observability data."
+    else:
+        st.subheader(
+            "Agent Observability"
         )
 
         st.caption(
-            str(error)
+            "Persistent execution telemetry "
+            "for ChargeOps AI."
         )
+
+        try:
+            runs = get_agent_runs(
+                access_token=access_token,
+                station_id=station_id,
+                limit=100,
+            )
+
+            if not runs:
+                st.info(
+                    "No agent runs recorded "
+                    "for this station yet."
+                )
+
+            else:
+                total_runs = len(
+                    runs
+                )
+
+                completed_runs = sum(
+                    1
+                    for run in runs
+                    if run["status"]
+                    == "completed"
+                )
+
+                approval_runs = sum(
+                    1
+                    for run in runs
+                    if run[
+                        "approval_required"
+                    ]
+                )
+
+                latencies = [
+                    run["latency_ms"]
+                    for run in runs
+                ]
+
+                average_latency = (
+                    sum(latencies)
+                    / len(latencies)
+                )
+
+                total_tool_calls = sum(
+                    len(
+                        run[
+                            "used_tools"
+                        ]
+                    )
+                    for run in runs
+                )
+
+                (
+                    metric1,
+                    metric2,
+                    metric3,
+                    metric4,
+                ) = st.columns(4)
+
+                metric1.metric(
+                    "Runs",
+                    total_runs,
+                )
+
+                metric2.metric(
+                    "Completed",
+                    completed_runs,
+                )
+
+                metric3.metric(
+                    "Avg Latency",
+                    (
+                        f"{average_latency:,.0f} ms"
+                    ),
+                )
+
+                metric4.metric(
+                    "Tool Calls",
+                    total_tool_calls,
+                )
+
+                st.markdown(
+                    "### Human Approval"
+                )
+
+                st.metric(
+                    "Protected Runs",
+                    approval_runs,
+                )
+
+                st.markdown(
+                    "### Recent Agent Runs"
+                )
+
+                table_rows = []
+
+                for run in runs:
+                    approval = "—"
+
+                    if (
+                        run[
+                            "approval_decision"
+                        ]
+                        is True
+                    ):
+                        approval = (
+                            "Approved"
+                        )
+
+                    elif (
+                        run[
+                            "approval_decision"
+                        ]
+                        is False
+                    ):
+                        approval = (
+                            "Rejected"
+                        )
+
+                    elif run[
+                        "approval_required"
+                    ]:
+                        approval = (
+                            "Pending"
+                        )
+
+                    table_rows.append(
+                        {
+                            "Run ID": str(
+                                run["id"]
+                            )[:8],
+                            "Status": (
+                                run[
+                                    "status"
+                                ]
+                            ),
+                            "Latency": (
+                                f"{run['latency_ms']} ms"
+                            ),
+                            "Tools": ", ".join(
+                                run[
+                                    "used_tools"
+                                ]
+                            )
+                            or "None",
+                            "Approval": (
+                                approval
+                            ),
+                            "Started": (
+                                run[
+                                    "started_at"
+                                ]
+                            ),
+                        }
+                    )
+
+                st.dataframe(
+                    table_rows,
+                    use_container_width=True,
+                    hide_index=True,
+                )
+
+                st.markdown(
+                    "### Run Inspector"
+                )
+
+                run_options = {
+                    (
+                        f"{str(run['id'])[:8]}"
+                        " — "
+                        f"{run['status']}"
+                        " — "
+                        f"{run['latency_ms']} ms"
+                    ): run
+                    for run in runs
+                }
+
+                selected_label = (
+                    st.selectbox(
+                        "Select execution",
+                        options=list(
+                            run_options.keys()
+                        ),
+                    )
+                )
+
+                selected_run = (
+                    run_options[
+                        selected_label
+                    ]
+                )
+
+                st.write(
+                    "**Run ID:**",
+                    selected_run["id"],
+                )
+
+                st.write(
+                    "**Thread ID:**",
+                    selected_run[
+                        "thread_id"
+                    ],
+                )
+
+                st.write(
+                    "**Model:**",
+                    selected_run[
+                        "model"
+                    ],
+                )
+
+                st.write(
+                    "**User request:**"
+                )
+
+                st.code(
+                    selected_run[
+                        "user_message"
+                    ]
+                )
+
+                st.write(
+                    "**Used tools:**",
+                    selected_run[
+                        "used_tools"
+                    ],
+                )
+
+                st.write(
+                    "**Agent answer:**"
+                )
+
+                st.write(
+                    selected_run[
+                        "answer"
+                    ]
+                    or "Workflow has not "
+                    "completed yet."
+                )
+
+                with st.expander(
+                    "Execution trace"
+                ):
+                    st.json(
+                        selected_run[
+                            "trace"
+                        ]
+                    )
+
+        except httpx.HTTPError as error:
+            st.error(
+                "Could not load "
+                "observability data."
+            )
+
+            st.caption(
+                str(error)
+            )
 
 with tab_system:
     st.subheader(

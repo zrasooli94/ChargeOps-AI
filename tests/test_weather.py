@@ -1,11 +1,16 @@
 from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.schemas.weather import WeatherData
 from app.services.weather_service import WeatherServiceError
+
+pytestmark = pytest.mark.usefixtures(
+    "authenticated_admin"
+)
 
 client = TestClient(app)
 

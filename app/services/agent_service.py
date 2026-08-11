@@ -16,6 +16,7 @@ from app.agents.chargeops_graph import (
     run_chargeops_graph,
 )
 from app.schemas.agent import ToolTrace
+from app.schemas.auth import UserRole
 from app.services.embedding_service import (
     EmbeddingServiceError,
 )
@@ -40,6 +41,8 @@ async def run_agent(
     message: str,
     station_id: str,
     session: AsyncSession,
+    user_id: str,
+    user_role: UserRole,
     thread_id: str | None = None,
 ) -> tuple[
     str,
@@ -48,6 +51,7 @@ async def run_agent(
     dict[str, Any] | None,
     list[dict[str, Any]],
 ]:
+
     try:
         resolved_thread_id = (
             thread_id
@@ -60,6 +64,8 @@ async def run_agent(
             station_id=station_id,
             session=session,
             thread_id=resolved_thread_id,
+            user_id=user_id,
+            user_role=user_role,
         )
 
     except (
@@ -90,6 +96,8 @@ async def resume_agent(
     thread_id: str,
     approved: bool,
     session: AsyncSession,
+    user_id: str,
+    user_role: UserRole,
 ) -> tuple[
     str,
     list[str],
@@ -102,6 +110,8 @@ async def resume_agent(
             thread_id=thread_id,
             approved=approved,
             session=session,
+            user_id=user_id,
+            user_role=user_role,
         )
 
     except (

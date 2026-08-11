@@ -28,6 +28,7 @@ from app.core.checkpointing import (
 from app.core.config import settings
 from app.core.openai_client import client
 from app.schemas.agent import ToolTrace
+from app.schemas.auth import UserRole
 from app.schemas.knowledge import (
     KnowledgeSearchResult,
 )
@@ -57,7 +58,16 @@ MAX_TOOL_ITERATIONS = 12
 @dataclass
 class AgentRuntimeContext:
     session: AsyncSession
+    user_id: str
+    user_role: UserRole
 
+def has_operator_access(
+    user_role: UserRole,
+) -> bool:
+    return user_role in (
+        "operator",
+        "admin",
+    )
 
 # =================================================
 # Graph state
@@ -204,6 +214,9 @@ def route_after_model(
 
 def request_approval_node(
     state: ChargeOpsState,
+    runtime: Runtime[
+        AgentRuntimeContext
+    ],
 ) -> dict[str, Any]:
     pending_calls = state[
         "pending_calls"
@@ -242,6 +255,13 @@ def request_approval_node(
             tool_call["arguments"]
         )
     )
+
+    if not has_operator_access(
+        runtime.context.user_role
+    ):
+        return {
+            "approval_decision": None,
+        }    
 
     decision = interrupt(
         {
@@ -291,6 +311,7 @@ def request_approval_node(
 # =================================================
 # Tool execution node
 # =================================================
+
 
 
 async def execute_tools_node(
@@ -496,7 +517,29 @@ async def execute_tools_node(
                 )
             )
 
-            if station_context is None:
+            if not has_operator_access(
+                runtime.context.user_role
+            ):
+                tool_result = {
+                    "executed": False,
+                    "authorized": False,
+                    "error": (
+                        "Operator or admin role "
+                        "is required to change "
+                        "station status."
+                    ),
+                }
+
+                tool_trace = ToolTrace(
+                    tool=tool_name,
+                    status="error",
+                    summary=(
+                        "Station status change "
+                        "blocked by RBAC."
+                    ),
+                )
+
+            elif station_context is None:
                 tool_result = {
                     "executed": False,
                     "error": (
@@ -600,7 +643,29 @@ async def execute_tools_node(
             tool_name
             == "diagnose_charging_issue"
         ):
-            if station_context is None:
+            if not has_operator_access(
+                runtime.context.user_role
+            ):
+                tool_result = {
+                    "authorized": False,
+                    "error": (
+                        "Operator or admin role "
+                        "is required to run a "
+                        "diagnosis that creates "
+                        "an incident."
+                    ),
+                }
+
+                tool_trace = ToolTrace(
+                    tool=tool_name,
+                    status="error",
+                    summary=(
+                        "Diagnostic write "
+                        "blocked by RBAC."
+                    ),
+                )
+
+            elif station_context is None:
                 tool_result = {
                     "error": (
                         "Station details must "
@@ -885,6 +950,8 @@ async def run_chargeops_graph(
     station_id: str,
     session: AsyncSession,
     thread_id: str,
+    user_id: str,
+    user_role: UserRole,
 ) -> tuple[
     str,
     list[str],
@@ -906,6 +973,8 @@ async def run_chargeops_graph(
         "metadata": {
             "thread_id": thread_id,
             "station_id": station_id,
+            "user_id": user_id,
+            "user_role": user_role,
             "application": (
                 "chargeops-ai"
             ),
@@ -1010,7 +1079,9 @@ async def run_chargeops_graph(
     result = await graph.ainvoke(
         initial_state,
         context=AgentRuntimeContext(
-            session=session
+            session=session,
+            user_id=user_id,
+            user_role=user_role,
         ),
         config=config,
     )
@@ -1028,6 +1099,8 @@ async def resume_chargeops_graph(
     thread_id: str,
     approved: bool,
     session: AsyncSession,
+    user_id: str,
+    user_role: UserRole,
 ) -> tuple[
     str,
     list[str],
@@ -1049,6 +1122,8 @@ async def resume_chargeops_graph(
         ],
         "metadata": {
             "thread_id": thread_id,
+            "user_id": user_id,
+            "user_role": user_role,
             "application": (
                 "chargeops-ai"
             ),
@@ -1063,7 +1138,9 @@ async def resume_chargeops_graph(
             resume=approved
         ),
         context=AgentRuntimeContext(
-            session=session
+            session=session,
+            user_id=user_id,
+            user_role=user_role,
         ),
         config=config,
     )

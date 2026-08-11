@@ -11,6 +11,7 @@ from app.models.agent_run import AgentRun  # noqa: F401
 from app.models.incident import Incident
 from app.models.knowledge import KnowledgeChunk
 from app.models.station import Station
+from app.models.user import User  # noqa: F401
 
 config = context.config
 
