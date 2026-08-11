@@ -19,6 +19,28 @@ class UserAlreadyExistsError(
     """Raised when an email is already registered."""
 
 
+# =================================================
+# Authentication timing protection
+# =================================================
+#
+# Unknown accounts must still perform an expensive
+# password verification operation.
+#
+# This prevents the authentication path from
+# immediately returning when an email does not
+# exist, which would create a useful timing
+# difference for account enumeration.
+#
+# This value is not a real credential and does not
+# need to be secret.
+# =================================================
+
+
+DUMMY_PASSWORD_HASH = hash_password(
+    "chargeops-authentication-timing-dummy-password"
+)
+
+
 def normalize_email(
     email: str,
 ) -> str:
@@ -219,16 +241,38 @@ async def authenticate_user(
         email=email,
     )
 
+    # Always perform password verification.
+    #
+    # Existing account:
+    #     verify against the real password hash.
+    #
+    # Unknown account:
+    #     verify against the dummy Argon2 hash.
+    #
+    # This avoids the fast "unknown user" return
+    # path that could expose account existence
+    # through response timing.
+
+    password_hash = (
+        user.password_hash
+        if user is not None
+        else DUMMY_PASSWORD_HASH
+    )
+
+    password_is_valid = (
+        verify_password(
+            password,
+            password_hash,
+        )
+    )
+
     if user is None:
         return None
 
     if not user.is_active:
         return None
 
-    if not verify_password(
-        password,
-        user.password_hash,
-    ):
+    if not password_is_valid:
         return None
 
     return user

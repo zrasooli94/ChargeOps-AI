@@ -7,6 +7,7 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Request,
     status,
 )
 from fastapi.security import (
@@ -19,7 +20,11 @@ from sqlalchemy.ext.asyncio import (
 from app.core.auth_dependencies import (
     CurrentUser,
 )
+from app.core.config import settings
 from app.core.database import get_db
+from app.core.login_rate_limiter import (
+    login_rate_limiter,
+)
 from app.core.security import (
     create_access_token,
 )
@@ -30,6 +35,7 @@ from app.schemas.auth import (
 )
 from app.services.auth_service import (
     authenticate_user,
+    normalize_email,
 )
 
 router = APIRouter(
@@ -40,11 +46,30 @@ router = APIRouter(
 )
 
 
+def get_client_ip(
+    request: Request,
+) -> str:
+    """
+    Return the direct network peer address.
+
+    Do not trust X-Forwarded-For here yet because
+    client-supplied forwarding headers can be
+    spoofed unless a trusted proxy configuration
+    is established.
+    """
+
+    if request.client is None:
+        return "unknown"
+
+    return request.client.host
+
+
 @router.post(
     "/login",
     response_model=AccessToken,
 )
 async def login(
+    request: Request,
     form_data: Annotated[
         OAuth2PasswordRequestForm,
         Depends(),
@@ -56,13 +81,67 @@ async def login(
         ),
     ],
 ) -> AccessToken:
+    client_ip = get_client_ip(
+        request
+    )
+
+    email = normalize_email(
+        form_data.username
+    )
+
+    retry_after = (
+        login_rate_limiter
+        .get_retry_after(
+            client_ip=client_ip,
+            email=email,
+            ip_attempt_limit=(
+                settings
+                .login_rate_limit_ip_attempts
+            ),
+            account_attempt_limit=(
+                settings
+                .login_rate_limit_account_attempts
+            ),
+            window_seconds=(
+                settings
+                .login_rate_limit_window_seconds
+            ),
+        )
+    )
+
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=(
+                status
+                .HTTP_429_TOO_MANY_REQUESTS
+            ),
+            detail=(
+                "Too many login attempts. "
+                "Try again later."
+            ),
+            headers={
+                "Retry-After": str(
+                    retry_after
+                ),
+            },
+        )
+
     user = await authenticate_user(
         session=session,
-        email=form_data.username,
+        email=email,
         password=form_data.password,
     )
 
     if user is None:
+        login_rate_limiter.record_failure(
+            client_ip=client_ip,
+            email=email,
+            window_seconds=(
+                settings
+                .login_rate_limit_window_seconds
+            ),
+        )
+
         raise HTTPException(
             status_code=(
                 status
@@ -78,6 +157,11 @@ async def login(
                 ),
             },
         )
+
+    login_rate_limiter.clear_account_failures(
+        client_ip=client_ip,
+        email=email,
+    )
 
     role = cast(
         UserRole,
