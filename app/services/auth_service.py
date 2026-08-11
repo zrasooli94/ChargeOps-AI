@@ -5,6 +5,9 @@ from sqlalchemy.ext.asyncio import (
     AsyncSession,
 )
 
+from app.core.password_policy import (
+    validate_password_strength,
+)
 from app.core.security import (
     hash_password,
     verify_password,
@@ -131,6 +134,11 @@ async def create_user(
         )
     )
 
+    validate_password_strength(
+        password,
+        email=normalized_email,
+    )
+    
     existing_user = (
         await get_user_by_email(
             session=session,

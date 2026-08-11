@@ -2258,7 +2258,7 @@ if is_admin and tab_users is not None:
                     "Temporary password",
                     type="password",
                     help=(
-                        "Minimum 12 characters."
+                        "Minimum 15 characters. Long passphrases are encouraged."
                     ),
                 )
             )
@@ -2299,10 +2299,10 @@ if is_admin and tab_users is not None:
 
             elif len(
                 new_user_password
-            ) < 12:
+            ) < 15:
                 st.warning(
                     "Password must contain at "
-                    "least 12 characters."
+                    "least 15 characters."
                 )
 
             else:

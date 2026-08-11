@@ -6,6 +6,13 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    model_validator,
+)
+
+from app.core.password_policy import (
+    MAX_PASSWORD_LENGTH,
+    MIN_PASSWORD_LENGTH,
+    validate_password_strength,
 )
 
 UserRole = Literal[
@@ -63,11 +70,28 @@ class UserCreateRequest(BaseModel):
     )
 
     password: str = Field(
-        min_length=12,
-        max_length=128,
+        min_length=(
+            MIN_PASSWORD_LENGTH
+        ),
+        max_length=(
+            MAX_PASSWORD_LENGTH
+        ),
     )
 
     role: UserRole = "viewer"
+
+    @model_validator(
+        mode="after"
+    )
+    def enforce_password_policy(
+        self,
+    ) -> "UserCreateRequest":
+        validate_password_strength(
+            self.password,
+            email=self.email,
+        )
+
+        return self
 
 
 class UserRoleUpdate(BaseModel):

@@ -36,6 +36,39 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 
+    cors_allowed_origins: str = (
+        "http://localhost:8501,"
+        "http://127.0.0.1:8501"
+    )
+
+    @property
+    def cors_allowed_origins_list(
+        self,
+    ) -> list[str]:
+        origins = [
+            origin.strip()
+            for origin in (
+                self.cors_allowed_origins
+                .split(",")
+            )
+            if origin.strip()
+        ]
+    
+        if "*" in origins:
+            raise ValueError(
+                "Wildcard CORS origins are not "
+                "allowed for ChargeOps."
+            )
+    
+        return origins
+
+    security_enable_hsts: bool = False
+    
+    security_hsts_max_age: int = Field(
+        default=31536000,
+        ge=0,
+    )
+
     # =============================================
     # Login rate limiting
     # =============================================

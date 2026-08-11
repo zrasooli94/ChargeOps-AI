@@ -5,6 +5,9 @@ from fastapi import (
     Depends,
     FastAPI,
 )
+from fastapi.middleware.cors import (
+    CORSMiddleware,
+)
 
 from app.api.agent import (
     router as agent_router,
@@ -45,6 +48,9 @@ from app.core.checkpointing import (
     initialize_checkpointing,
 )
 from app.core.config import settings
+from app.core.security_headers import (
+    SecurityHeadersMiddleware,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -72,6 +78,46 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# =================================================
+# CORS
+# =================================================
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=(
+        settings
+        .cors_allowed_origins_list
+    ),
+    allow_credentials=False,
+    allow_methods=[
+        "GET",
+        "POST",
+        "PATCH",
+        "DELETE",
+        "OPTIONS",
+    ],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "Accept",
+    ],
+)
+
+# =================================================
+# Security headers
+# =================================================
+
+app.add_middleware(
+    SecurityHeadersMiddleware,
+    enable_hsts=(
+        settings
+        .security_enable_hsts
+    ),
+    hsts_max_age=(
+        settings
+        .security_hsts_max_age
+    ),
+)
 
 # =================================================
 # Public / self-authenticated routes
