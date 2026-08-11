@@ -339,6 +339,81 @@ def search_knowledge(
     return response.json()
 
 
+@st.cache_data(ttl=10)
+def get_users(
+    access_token: str,
+) -> list[dict]:
+    response = authenticated_request(
+        method="GET",
+        path="/users",
+        access_token=access_token,
+        timeout=10.0,
+    )
+
+    return response.json()
+
+
+def create_chargeops_user(
+    access_token: str,
+    email: str,
+    password: str,
+    role: str,
+) -> dict:
+    response = authenticated_request(
+        method="POST",
+        path="/users",
+        access_token=access_token,
+        json={
+            "email": email,
+            "password": password,
+            "role": role,
+        },
+        timeout=10.0,
+    )
+
+    return response.json()
+
+
+def change_user_role(
+    access_token: str,
+    user_id: str,
+    role: str,
+) -> dict:
+    response = authenticated_request(
+        method="PATCH",
+        path=(
+            f"/users/{user_id}/role"
+        ),
+        access_token=access_token,
+        json={
+            "role": role,
+        },
+        timeout=10.0,
+    )
+
+    return response.json()
+
+
+def change_user_status(
+    access_token: str,
+    user_id: str,
+    is_active: bool,
+) -> dict:
+    response = authenticated_request(
+        method="PATCH",
+        path=(
+            f"/users/{user_id}/status"
+        ),
+        access_token=access_token,
+        json={
+            "is_active": is_active,
+        },
+        timeout=10.0,
+    )
+
+    return response.json()
+
+
 # =================================================
 # UI helper functions
 # =================================================
@@ -881,21 +956,38 @@ st.divider()
 # =================================================
 
 
-(
-    tab_agent,
-    tab_incidents,
-    tab_knowledge,
-    tab_observability,
-    tab_system,
-) = st.tabs(
-    [
-        "🤖 Agent",
-        "🚨 Incidents",
-        "📚 Knowledge Base",
-        "📊 Observability",
-        "⚙️ System",
-    ]
+tab_labels = [
+    "🤖 Agent",
+    "🚨 Incidents",
+    "📚 Knowledge Base",
+    "📊 Observability",
+]
+
+if is_admin:
+    tab_labels.append(
+        "👥 Users"
+    )
+
+tab_labels.append(
+    "⚙️ System"
 )
+
+tabs = st.tabs(
+    tab_labels
+)
+
+tab_agent = tabs[0]
+tab_incidents = tabs[1]
+tab_knowledge = tabs[2]
+tab_observability = tabs[3]
+
+if is_admin:
+    tab_users = tabs[4]
+    tab_system = tabs[5]
+
+else:
+    tab_users = None
+    tab_system = tabs[4]
 
 
 # =================================================
@@ -2052,7 +2144,555 @@ with tab_knowledge:
 
 
 # =================================================
-# System tab
+# User Management tab
+# =================================================
+
+
+if is_admin and tab_users is not None:
+    with tab_users:
+        st.subheader(
+            "User Management"
+        )
+
+        st.write(
+            "Create ChargeOps accounts, assign roles, "
+            "and activate or deactivate access."
+        )
+
+        st.caption(
+            "User administration is protected by the "
+            "backend AdminUser authorization dependency."
+        )
+
+        try:
+            users = get_users(
+                access_token
+            )
+
+        except (
+            httpx.HTTPStatusError
+        ) as error:
+            show_http_error(
+                error
+            )
+            users = []
+
+        except httpx.HTTPError as error:
+            st.error(
+                "Could not load ChargeOps users."
+            )
+
+            st.caption(
+                str(error)
+            )
+            users = []
+
+        total_users = len(
+            users
+        )
+
+        active_users = sum(
+            bool(
+                user.get(
+                    "is_active"
+                )
+            )
+            for user in users
+        )
+
+        admin_users = sum(
+            user.get(
+                "role"
+            )
+            == "admin"
+            for user in users
+        )
+
+        user_metric1, user_metric2, user_metric3 = (
+            st.columns(3)
+        )
+
+        with user_metric1:
+            st.metric(
+                "Total Users",
+                total_users,
+            )
+
+        with user_metric2:
+            st.metric(
+                "Active Users",
+                active_users,
+            )
+
+        with user_metric3:
+            st.metric(
+                "Administrators",
+                admin_users,
+            )
+
+        st.divider()
+
+        # -----------------------------------------
+        # Create user
+        # -----------------------------------------
+
+        st.markdown(
+            "### ➕ Create User"
+        )
+
+        with st.form(
+            "create_user_form",
+            clear_on_submit=True,
+        ):
+            new_user_email = (
+                st.text_input(
+                    "Email",
+                    placeholder=(
+                        "operator@chargeops.local"
+                    ),
+                )
+            )
+
+            new_user_password = (
+                st.text_input(
+                    "Temporary password",
+                    type="password",
+                    help=(
+                        "Minimum 12 characters."
+                    ),
+                )
+            )
+
+            new_user_role = (
+                st.selectbox(
+                    "Role",
+                    options=[
+                        "viewer",
+                        "operator",
+                        "admin",
+                    ],
+                    format_func=lambda value: (
+                        value.title()
+                    ),
+                    key="new_user_role",
+                )
+            )
+
+            create_user_submitted = (
+                st.form_submit_button(
+                    "Create User",
+                    use_container_width=True,
+                )
+            )
+
+        if create_user_submitted:
+            email_value = (
+                new_user_email
+                .strip()
+                .lower()
+            )
+
+            if not email_value:
+                st.warning(
+                    "Enter an email address."
+                )
+
+            elif len(
+                new_user_password
+            ) < 12:
+                st.warning(
+                    "Password must contain at "
+                    "least 12 characters."
+                )
+
+            else:
+                try:
+                    created_user = (
+                        create_chargeops_user(
+                            access_token=(
+                                access_token
+                            ),
+                            email=email_value,
+                            password=(
+                                new_user_password
+                            ),
+                            role=new_user_role,
+                        )
+                    )
+
+                    st.cache_data.clear()
+
+                    st.success(
+                        "Created "
+                        f"{created_user['email']} "
+                        f"as "
+                        f"{created_user['role'].title()}."
+                    )
+
+                    st.rerun()
+
+                except (
+                    httpx.HTTPStatusError
+                ) as error:
+                    if (
+                        error.response.status_code
+                        == 409
+                    ):
+                        st.warning(
+                            "A user with this email "
+                            "already exists."
+                        )
+
+                    else:
+                        show_http_error(
+                            error
+                        )
+
+                except httpx.HTTPError as error:
+                    st.error(
+                        "Could not create user."
+                    )
+
+                    st.caption(
+                        str(error)
+                    )
+
+        st.divider()
+
+        # -----------------------------------------
+        # User directory
+        # -----------------------------------------
+
+        st.markdown(
+            "### 👥 User Directory"
+        )
+
+        if not users:
+            st.info(
+                "No users are available."
+            )
+
+        else:
+            table_rows = [
+                {
+                    "Email": user[
+                        "email"
+                    ],
+                    "Role": (
+                        user["role"]
+                        .title()
+                    ),
+                    "Status": (
+                        "Active"
+                        if user[
+                            "is_active"
+                        ]
+                        else "Inactive"
+                    ),
+                    "Created": user[
+                        "created_at"
+                    ],
+                }
+                for user in users
+            ]
+
+            st.dataframe(
+                table_rows,
+                use_container_width=True,
+                hide_index=True,
+            )
+
+            st.divider()
+
+            # -------------------------------------
+            # Manage selected user
+            # -------------------------------------
+
+            st.markdown(
+                "### 🛠 Manage Account"
+            )
+
+            user_options = {
+                (
+                    f"{user['email']} — "
+                    f"{user['role'].title()} — "
+                    f"{'Active' if user['is_active'] else 'Inactive'}"
+                ): user
+                for user in users
+            }
+
+            selected_user_label = (
+                st.selectbox(
+                    "Select user",
+                    options=list(
+                        user_options.keys()
+                    ),
+                    key=(
+                        "manage_user_select"
+                    ),
+                )
+            )
+
+            selected_user = (
+                user_options[
+                    selected_user_label
+                ]
+            )
+
+            selected_user_id = str(
+                selected_user[
+                    "id"
+                ]
+            )
+
+            current_user_id = str(
+                current_user.get(
+                    "id",
+                    "",
+                )
+            )
+
+            managing_self = (
+                selected_user_id
+                == current_user_id
+            )
+
+            detail_col1, detail_col2 = (
+                st.columns(2)
+            )
+
+            with detail_col1:
+                st.write(
+                    "**Email:** "
+                    f"{selected_user['email']}"
+                )
+
+                st.write(
+                    "**Current role:** "
+                    f"{selected_user['role'].title()}"
+                )
+
+            with detail_col2:
+                st.write(
+                    "**Status:** "
+                    + (
+                        "Active"
+                        if selected_user[
+                            "is_active"
+                        ]
+                        else "Inactive"
+                    )
+                )
+
+                st.write(
+                    "**Created:** "
+                    f"{selected_user['created_at']}"
+                )
+
+            if managing_self:
+                st.info(
+                    "This is your current admin account. "
+                    "ChargeOps prevents you from removing "
+                    "your own admin role or deactivating "
+                    "your own account."
+                )
+
+            st.markdown(
+                "#### Change Role"
+            )
+
+            roles = [
+                "viewer",
+                "operator",
+                "admin",
+            ]
+
+            role_index = roles.index(
+                selected_user[
+                    "role"
+                ]
+            )
+
+            requested_role = (
+                st.selectbox(
+                    "New role",
+                    options=roles,
+                    index=role_index,
+                    format_func=lambda value: (
+                        value.title()
+                    ),
+                    key=(
+                        "selected_user_role"
+                    ),
+                )
+            )
+
+            role_change_blocked = (
+                managing_self
+                and requested_role
+                != "admin"
+            )
+
+            if st.button(
+                "Update Role",
+                use_container_width=True,
+                disabled=(
+                    requested_role
+                    == selected_user[
+                        "role"
+                    ]
+                    or role_change_blocked
+                ),
+                key="update_user_role",
+            ):
+                try:
+                    updated_user = (
+                        change_user_role(
+                            access_token=(
+                                access_token
+                            ),
+                            user_id=(
+                                selected_user_id
+                            ),
+                            role=requested_role,
+                        )
+                    )
+
+                    st.cache_data.clear()
+
+                    st.success(
+                        f"{updated_user['email']} "
+                        f"is now "
+                        f"{updated_user['role'].title()}."
+                    )
+
+                    st.rerun()
+
+                except (
+                    httpx.HTTPStatusError
+                ) as error:
+                    show_http_error(
+                        error
+                    )
+
+                except httpx.HTTPError as error:
+                    st.error(
+                        "Could not update user role."
+                    )
+
+                    st.caption(
+                        str(error)
+                    )
+
+            st.markdown(
+                "#### Account Access"
+            )
+
+            if managing_self:
+                st.caption(
+                    "Your own account cannot be "
+                    "deactivated from this interface."
+                )
+
+            elif selected_user[
+                "is_active"
+            ]:
+                if st.button(
+                    "Deactivate User",
+                    type="secondary",
+                    use_container_width=True,
+                    key=(
+                        "deactivate_user"
+                    ),
+                ):
+                    try:
+                        updated_user = (
+                            change_user_status(
+                                access_token=(
+                                    access_token
+                                ),
+                                user_id=(
+                                    selected_user_id
+                                ),
+                                is_active=False,
+                            )
+                        )
+
+                        st.cache_data.clear()
+
+                        st.success(
+                            f"{updated_user['email']} "
+                            "has been deactivated."
+                        )
+
+                        st.rerun()
+
+                    except (
+                        httpx.HTTPStatusError
+                    ) as error:
+                        show_http_error(
+                            error
+                        )
+
+                    except httpx.HTTPError as error:
+                        st.error(
+                            "Could not deactivate user."
+                        )
+
+                        st.caption(
+                            str(error)
+                        )
+
+            else:
+                if st.button(
+                    "Activate User",
+                    type="primary",
+                    use_container_width=True,
+                    key=(
+                        "activate_user"
+                    ),
+                ):
+                    try:
+                        updated_user = (
+                            change_user_status(
+                                access_token=(
+                                    access_token
+                                ),
+                                user_id=(
+                                    selected_user_id
+                                ),
+                                is_active=True,
+                            )
+                        )
+
+                        st.cache_data.clear()
+
+                        st.success(
+                            f"{updated_user['email']} "
+                            "has been activated."
+                        )
+
+                        st.rerun()
+
+                    except (
+                        httpx.HTTPStatusError
+                    ) as error:
+                        show_http_error(
+                            error
+                        )
+
+                    except httpx.HTTPError as error:
+                        st.error(
+                            "Could not activate user."
+                        )
+
+                        st.caption(
+                            str(error)
+                        )
+
+
+# =================================================
+# Observability tab
 # =================================================
 
 with tab_observability:

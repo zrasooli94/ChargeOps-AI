@@ -29,6 +29,11 @@ def normalize_email(
     )
 
 
+# =================================================
+# User lookup
+# =================================================
+
+
 async def get_user_by_email(
     session: AsyncSession,
     email: str,
@@ -66,6 +71,30 @@ async def get_user_by_id(
         result
         .scalar_one_or_none()
     )
+
+
+# =================================================
+# User listing
+# =================================================
+
+
+async def list_users(
+    session: AsyncSession,
+) -> list[User]:
+    result = await session.execute(
+        select(User).order_by(
+            User.created_at.asc()
+        )
+    )
+
+    return list(
+        result.scalars().all()
+    )
+
+
+# =================================================
+# User creation
+# =================================================
 
 
 async def create_user(
@@ -115,6 +144,69 @@ async def create_user(
     )
 
     return user
+
+
+# =================================================
+# Role management
+# =================================================
+
+
+async def update_user_role(
+    session: AsyncSession,
+    user_id: UUID,
+    role: UserRole,
+) -> User | None:
+    user = await get_user_by_id(
+        session=session,
+        user_id=user_id,
+    )
+
+    if user is None:
+        return None
+
+    user.role = role
+
+    await session.commit()
+
+    await session.refresh(
+        user
+    )
+
+    return user
+
+
+# =================================================
+# Account status management
+# =================================================
+
+
+async def update_user_status(
+    session: AsyncSession,
+    user_id: UUID,
+    is_active: bool,
+) -> User | None:
+    user = await get_user_by_id(
+        session=session,
+        user_id=user_id,
+    )
+
+    if user is None:
+        return None
+
+    user.is_active = is_active
+
+    await session.commit()
+
+    await session.refresh(
+        user
+    )
+
+    return user
+
+
+# =================================================
+# Authentication
+# =================================================
 
 
 async def authenticate_user(
