@@ -28,6 +28,9 @@ from app.core.login_rate_limiter import (
 from app.core.security import (
     create_access_token,
 )
+from app.core.security_audit import (
+    log_security_event,
+)
 from app.schemas.auth import (
     AccessToken,
     UserRead,
@@ -110,6 +113,22 @@ async def login(
     )
 
     if retry_after is not None:
+        log_security_event(
+            event=(
+                "auth.login.rate_limited"
+            ),
+            outcome="denied",
+            severity="WARNING",
+            client_ip=client_ip,
+            email=email,
+            request_id=getattr(
+                request.state,
+                "request_id",
+                None,
+            ),
+            reason="rate_limit",
+        )
+
         raise HTTPException(
             status_code=(
                 status
@@ -139,6 +158,22 @@ async def login(
             window_seconds=(
                 settings
                 .login_rate_limit_window_seconds
+            ),
+        )
+
+        log_security_event(
+            event="auth.login.failed",
+            outcome="failure",
+            severity="WARNING",
+            client_ip=client_ip,
+            email=email,
+            request_id=getattr(
+                request.state,
+                "request_id",
+                None,
+            ),
+            reason=(
+                "invalid_credentials"
             ),
         )
 
@@ -173,6 +208,20 @@ async def login(
             user_id=user.id,
             role=role,
         )
+    )
+
+    log_security_event(
+        event="auth.login.success",
+        outcome="success",
+        user_id=user.id,
+        user_role=user.role,
+        client_ip=client_ip,
+        email=email,
+        request_id=getattr(
+            request.state,
+            "request_id",
+            None,
+        ),
     )
 
     return AccessToken(

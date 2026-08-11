@@ -48,6 +48,12 @@ from app.core.checkpointing import (
     initialize_checkpointing,
 )
 from app.core.config import settings
+from app.core.error_handling import (
+    register_error_handling,
+)
+from app.core.production_security import (
+    validate_production_security,
+)
 from app.core.security_headers import (
     SecurityHeadersMiddleware,
 )
@@ -65,17 +71,42 @@ logging.basicConfig(
 async def lifespan(
     _: FastAPI,
 ):
+    validate_production_security(
+        settings
+    )
     await initialize_checkpointing()
 
     yield
 
     await close_checkpointing()
 
+is_production = (
+    settings.app_environment
+    == "production"
+)
 
 app = FastAPI(
     title=settings.app_name,
     version="0.1.0",
     lifespan=lifespan,
+    docs_url=(
+        None
+        if is_production
+        else "/docs"
+    ),
+    redoc_url=(
+        None
+        if is_production
+        else "/redoc"
+    ),
+    openapi_url=(
+        None
+        if is_production
+        else "/openapi.json"
+    ),
+)
+register_error_handling(
+    app
 )
 
 # =================================================

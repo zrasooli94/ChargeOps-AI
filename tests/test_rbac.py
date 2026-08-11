@@ -1,5 +1,11 @@
+
+from uuid import uuid4
+
 import pytest
-from fastapi import HTTPException
+from fastapi import (
+    HTTPException,
+    Request,
+)
 
 from app.core.auth_dependencies import (
     require_admin,
@@ -7,20 +13,49 @@ from app.core.auth_dependencies import (
     require_viewer,
 )
 from app.models.user import User
+from app.schemas.auth import UserRole
 
 
 def make_user(
-    role: str,
+    role: UserRole,
 ) -> User:
     return User(
+        id=uuid4(),
         email=(
-            f"{role}@chargeops.local"
+            f"{role}@test.chargeops.local"
         ),
-        password_hash=(
-            "test-password-hash"
-        ),
+        password_hash="test-password-hash",
         role=role,
         is_active=True,
+    )
+
+
+def make_request() -> Request:
+    scope = {
+        "type": "http",
+        "asgi": {
+            "version": "3.0",
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/test-rbac",
+        "raw_path": b"/test-rbac",
+        "query_string": b"",
+        "headers": [],
+        "client": (
+            "127.0.0.1",
+            12345,
+        ),
+        "server": (
+            "testserver",
+            80,
+        ),
+        "state": {},
+    }
+
+    return Request(
+        scope
     )
 
 
@@ -31,7 +66,8 @@ def test_viewer_can_access_viewer_role(
     )
 
     result = require_viewer(
-        user
+        request=make_request(),
+        current_user=user,
     )
 
     assert result is user
@@ -44,7 +80,8 @@ def test_operator_can_access_viewer_role(
     )
 
     result = require_viewer(
-        user
+        request=make_request(),
+        current_user=user,
     )
 
     assert result is user
@@ -57,7 +94,8 @@ def test_admin_can_access_viewer_role(
     )
 
     result = require_viewer(
-        user
+        request=make_request(),
+        current_user=user,
     )
 
     assert result is user
@@ -73,12 +111,21 @@ def test_viewer_cannot_access_operator_role(
         HTTPException
     ) as exc_info:
         require_operator(
-            user
+            request=make_request(),
+            current_user=user,
         )
 
     assert (
         exc_info.value.status_code
         == 403
+    )
+
+    assert (
+        exc_info.value.detail
+        == (
+            "You do not have permission "
+            "to perform this action."
+        )
     )
 
 
@@ -89,7 +136,8 @@ def test_operator_can_access_operator_role(
     )
 
     result = require_operator(
-        user
+        request=make_request(),
+        current_user=user,
     )
 
     assert result is user
@@ -102,7 +150,8 @@ def test_admin_can_access_operator_role(
     )
 
     result = require_operator(
-        user
+        request=make_request(),
+        current_user=user,
     )
 
     assert result is user
@@ -118,12 +167,21 @@ def test_viewer_cannot_access_admin_role(
         HTTPException
     ) as exc_info:
         require_admin(
-            user
+            request=make_request(),
+            current_user=user,
         )
 
     assert (
         exc_info.value.status_code
         == 403
+    )
+
+    assert (
+        exc_info.value.detail
+        == (
+            "You do not have permission "
+            "to perform this action."
+        )
     )
 
 
@@ -137,12 +195,21 @@ def test_operator_cannot_access_admin_role(
         HTTPException
     ) as exc_info:
         require_admin(
-            user
+            request=make_request(),
+            current_user=user,
         )
 
     assert (
         exc_info.value.status_code
         == 403
+    )
+
+    assert (
+        exc_info.value.detail
+        == (
+            "You do not have permission "
+            "to perform this action."
+        )
     )
 
 
@@ -153,7 +220,8 @@ def test_admin_can_access_admin_role(
     )
 
     result = require_admin(
-        user
+        request=make_request(),
+        current_user=user,
     )
 
     assert result is user

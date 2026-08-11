@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import Field
 from pydantic_settings import (
     BaseSettings,
@@ -7,7 +9,11 @@ from pydantic_settings import (
 
 class Settings(BaseSettings):
     app_name: str = "ChargeOps AI"
-    app_environment: str = "development"
+    app_environment: Literal[
+        "development",
+        "test",
+        "production",
+    ] = "development"
 
     openai_api_key: str | None = None
     openai_model: str = "gpt-5-mini"
@@ -32,9 +38,31 @@ class Settings(BaseSettings):
         "localhost:5432/chargeops"
     )
 
+    # =============================================
+    # JWT / session security
+    # =============================================
+    
     jwt_secret_key: str = ""
-    jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
+    
+    jwt_algorithm: Literal[
+        "HS256"
+    ] = "HS256"
+    
+    jwt_issuer: str = "chargeops-ai"
+    
+    jwt_audience: str = "chargeops-api"
+    
+    jwt_leeway_seconds: int = Field(
+        default=30,
+        ge=0,
+        le=120,
+    )
+    
+    access_token_expire_minutes: int = Field(
+        default=30,
+        ge=5,
+        le=60,
+    )
 
     cors_allowed_origins: str = (
         "http://localhost:8501,"

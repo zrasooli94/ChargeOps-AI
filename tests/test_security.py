@@ -3,6 +3,7 @@ from uuid import uuid4
 
 import pytest
 
+from app.core.config import settings
 from app.core.security import (
     TokenValidationError,
     create_access_token,
@@ -59,7 +60,10 @@ def test_expired_access_token_is_rejected(
         user_id=user_id,
         role="viewer",
         expires_delta=timedelta(
-            seconds=-1
+            seconds=(
+                -settings.jwt_leeway_seconds
+                - 1
+            )
         ),
     )
 

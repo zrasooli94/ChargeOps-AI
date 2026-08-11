@@ -30,12 +30,24 @@ UserRole = Literal[
 class TokenClaims(BaseModel):
     sub: UUID
     role: UserRole
+
+    iss: str
+    aud: str
+
     iat: datetime
+    nbf: datetime
     exp: datetime
+
+    jti: UUID
+
+    token_use: Literal[
+        "access"
+    ]
 
 
 class AccessToken(BaseModel):
     access_token: str
+
     token_type: Literal[
         "bearer"
     ] = "bearer"

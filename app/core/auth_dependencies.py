@@ -3,19 +3,19 @@ from typing import Annotated, cast
 from fastapi import (
     Depends,
     HTTPException,
+    Request,
     status,
 )
-from fastapi.security import (
-    OAuth2PasswordBearer,
-)
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-)
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import (
     TokenValidationError,
     decode_access_token,
+)
+from app.core.security_audit import (
+    log_security_event,
 )
 from app.models.user import User
 from app.schemas.auth import UserRole
@@ -28,7 +28,17 @@ oauth2_scheme = OAuth2PasswordBearer(
 )
 
 
+def get_request_client_ip(
+    request: Request,
+) -> str:
+    if request.client is None:
+        return "unknown"
+
+    return request.client.host
+
+
 async def get_current_user(
+    request: Request,
     token: Annotated[
         str,
         Depends(
@@ -61,6 +71,25 @@ async def get_current_user(
         )
 
     except TokenValidationError:
+        log_security_event(
+            event="auth.token.rejected",
+            outcome="denied",
+            severity="WARNING",
+            client_ip=(
+                get_request_client_ip(
+                    request
+                )
+            ),
+            request_id=getattr(
+                request.state,
+                "request_id",
+                None,
+            ),
+            reason=(
+                "invalid_or_expired_token"
+            ),
+        )
+
         raise credentials_error from None
 
     user = await get_user_by_id(
@@ -68,11 +97,39 @@ async def get_current_user(
         user_id=claims.sub,
     )
 
-    if user is None:
+    if (
+        user is None
+        or not user.is_active
+    ):
+        log_security_event(
+            event="auth.user.rejected",
+            outcome="denied",
+            severity="WARNING",
+            user_id=claims.sub,
+            client_ip=(
+                get_request_client_ip(
+                    request
+                )
+            ),
+            request_id=getattr(
+                request.state,
+                "request_id",
+                None,
+            ),
+            reason=(
+                "missing_or_inactive_user"
+            ),
+        )
+
         raise credentials_error
 
-    if not user.is_active:
-        raise credentials_error
+    request.state.user_id = str(
+        user.id
+    )
+
+    request.state.user_role = (
+        user.role
+    )
 
     return user
 
@@ -106,6 +163,7 @@ class RequireRole:
 
     def __call__(
         self,
+        request: Request,
         current_user: CurrentUser,
     ) -> User:
         current_role = cast(
@@ -130,6 +188,34 @@ class RequireRole:
             current_level
             < required_level
         ):
+            log_security_event(
+                event="authz.role.denied",
+                outcome="denied",
+                severity="WARNING",
+                user_id=current_user.id,
+                user_role=(
+                    current_user.role
+                ),
+                client_ip=(
+                    get_request_client_ip(
+                        request
+                    )
+                ),
+                request_id=getattr(
+                    request.state,
+                    "request_id",
+                    None,
+                ),
+                target=(
+                    f"{request.method} "
+                    f"{request.url.path}"
+                ),
+                reason=(
+                    "requires_"
+                    f"{self.minimum_role}"
+                ),
+            )
+
             raise HTTPException(
                 status_code=(
                     status
@@ -143,6 +229,7 @@ class RequireRole:
             )
 
         return current_user
+
 
 require_viewer = RequireRole(
     "viewer"
