@@ -1,4 +1,8 @@
 services:
+  # =================================================
+  # PostgreSQL + pgvector
+  # =================================================
+
   postgres:
     image: pgvector/pgvector:pg17
     container_name: chargeops-postgres
@@ -19,11 +23,253 @@ services:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
         ]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 10s
+
+
+  # =================================================
+  # Alembic database migrations
+  #
+  # One-shot container.
+  # FastAPI waits for successful completion.
+  # =================================================
+
+  migrations:
+    image: chargeops-ai:local
+    build:
+      context: .
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_URL: >-
+        postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+
+    command:
+      [
+        "python",
+        "-m",
+        "alembic",
+        "upgrade",
+        "head",
+      ]
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    restart: "no"
+
+
+  # =================================================
+  # Forecast bootstrap
+  #
+  # Current Stage 18 model uses simulated demo
+  # history. We regenerate it when the Compose stack
+  # starts so the demo history remains current.
+  #
+  # Later real telemetry / ACN-Data training will
+  # become a separate ML pipeline.
+  # =================================================
+
+  forecast_bootstrap:
+    image: chargeops-ai:local
+
+    env_file:
+      - .env
+
+    user: "0:0"
+
+    environment:
+      FORECAST_HISTORY_PATH: /app/data/forecasting/demand_history.csv
+      FORECAST_MODEL_ARTIFACT_PATH: /app/artifacts/demand_forecast.joblib
+      FORECAST_HISTORY_LABEL: demo_simulation
+
+    command:
+      [
+        "python",
+        "-m",
+        "scripts.train_demand_forecast",
+        "--generate-demo",
+      ]
+
+    volumes:
+      - chargeops_forecast_data:/app/data/forecasting
+      - chargeops_forecast_artifacts:/app/artifacts
+
+    restart: "no"
+
+
+  # =================================================
+  # FastAPI backend
+  # =================================================
+
+  api:
+    image: chargeops-ai:local
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_URL: >-
+        postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+
+      FORECAST_HISTORY_PATH: /app/data/forecasting/demand_history.csv
+      FORECAST_MODEL_ARTIFACT_PATH: /app/artifacts/demand_forecast.joblib
+      FORECAST_HISTORY_LABEL: demo_simulation
+
+    command:
+      [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+      ]
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - chargeops_forecast_data:/app/data/forecasting:ro
+      - chargeops_forecast_artifacts:/app/artifacts:ro
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      migrations:
+        condition: service_completed_successfully
+
+      forecast_bootstrap:
+        condition: service_completed_successfully
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+
+  # =================================================
+  # Streamlit frontend
+  # =================================================
+
+  frontend:
+    image: chargeops-ai:local
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    environment:
+      CHARGEOPS_API_URL: http://api:8000
+
+    command:
+      [
+        "streamlit",
+        "run",
+        "frontend/app.py",
+        "--server.address=0.0.0.0",
+        "--server.port=8501",
+        "--server.headless=true",
+      ]
+
+    ports:
+      - "8501:8501"
+
+    depends_on:
+      api:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+
+  # =================================================
+  # ChargeOps MCP server
+  # =================================================
+
+  mcp:
+    image: chargeops-ai:local
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_URL: >-
+        postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8001
+      MCP_STREAMABLE_HTTP_PATH: /mcp
+
+    command:
+      [
+        "python",
+        "-m",
+        "app.mcp.server",
+      ]
+
+    ports:
+      - "8001:8001"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      migrations:
+        condition: service_completed_successfully
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import socket; s = socket.create_connection(('127.0.0.1', 8001), timeout=3); s.close()",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+
+# =================================================
+# Persistent Docker volumes
+# =================================================
 
 volumes:
+  # IMPORTANT:
+  # This is the SAME PostgreSQL volume key already
+  # used by ChargeOps. Do not rename it.
   chargeops_postgres_data:
+
+  chargeops_forecast_data:
+
+  chargeops_forecast_artifacts:
