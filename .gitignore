@@ -8,3 +8,6 @@ __pycache__/
 .vscode/
 .idea/
 test.ipynb
+# Forecasting generated data / artifacts
+data/forecasting/*.csv
+artifacts/*.joblib

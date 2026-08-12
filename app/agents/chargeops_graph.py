@@ -35,12 +35,14 @@ from app.schemas.knowledge import (
 from app.services.agent_tools import (
     AGENT_INSTRUCTIONS,
     TOOLS,
+    DemandForecastToolArguments,
     DiagnosticToolArguments,
     ExternalReferenceToolArguments,
     KnowledgeToolArguments,
     StandardsSpecialistToolArguments,
     StationContext,
     StationStatusToolArguments,
+    execute_demand_forecast_tool,
     execute_diagnostic_tool,
     execute_external_reference_tool,
     execute_incident_history_tool,
@@ -554,6 +556,51 @@ async def execute_tools_node(
                     arguments.question
                 )
             )
+
+        # =========================================
+        # EV demand forecasting
+        # =========================================
+
+        elif (
+            tool_name
+            == "forecast_station_demand"
+        ):
+            if station_context is None:
+                tool_result = {
+                    "error": (
+                        "Station details must "
+                        "be loaded before "
+                        "demand forecasting."
+                    )
+                }
+
+                tool_trace = ToolTrace(
+                    tool=tool_name,
+                    status="error",
+                    summary=(
+                        "Station context is "
+                        "not loaded."
+                    ),
+                )
+
+            else:
+                arguments = (
+                    DemandForecastToolArguments
+                    .model_validate_json(
+                        arguments_json
+                    )
+                )
+
+                (
+                    tool_result,
+                    tool_trace,
+                ) = (
+                    await execute_demand_forecast_tool(
+                        station_context,
+                        arguments.hours,
+                    )
+                )
+
 
         # =========================================
         # Protected station status change

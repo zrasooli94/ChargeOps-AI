@@ -21,6 +21,9 @@ from app.api.auth import (
 from app.api.chat import (
     router as chat_router,
 )
+from app.api.forecast import (
+    router as forecast_router,
+)
 from app.api.health import (
     router as health_router,
 )
@@ -231,6 +234,15 @@ app.include_router(
 # =================================================
 # Viewer routes
 # =================================================
+
+app.include_router(
+    forecast_router,
+    dependencies=[
+        Depends(
+            require_viewer
+        ),
+    ],
+)
 
 app.include_router(
     chat_router,

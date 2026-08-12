@@ -2,6 +2,7 @@ import os
 from uuid import uuid4
 
 import httpx
+import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -166,6 +167,29 @@ def get_agent_runs(
 
     return response.json()
 
+
+@st.cache_data(ttl=300)
+def get_station_forecast(
+    access_token: str,
+    station_id: str,
+    hours: int = 24,
+) -> dict:
+    response = authenticated_request(
+        method="GET",
+        path=(
+            "/forecast/stations/"
+            f"{station_id}"
+        ),
+        access_token=(
+            access_token
+        ),
+        params={
+            "hours": hours,
+        },
+        timeout=20.0,
+    )
+
+    return response.json()
 
 @st.cache_data(ttl=30)
 def get_stations(
@@ -958,6 +982,7 @@ st.divider()
 
 tab_labels = [
     "🤖 Agent",
+    "📈 Demand Forecast",
     "🚨 Incidents",
     "📚 Knowledge Base",
     "📊 Observability",
@@ -976,18 +1001,20 @@ tabs = st.tabs(
     tab_labels
 )
 
+
 tab_agent = tabs[0]
-tab_incidents = tabs[1]
-tab_knowledge = tabs[2]
-tab_observability = tabs[3]
+tab_forecast = tabs[1]
+tab_incidents = tabs[2]
+tab_knowledge = tabs[3]
+tab_observability = tabs[4]
 
 if is_admin:
-    tab_users = tabs[4]
-    tab_system = tabs[5]
+    tab_users = tabs[5]
+    tab_system = tabs[6]
 
 else:
     tab_users = None
-    tab_system = tabs[4]
+    tab_system = tabs[5]
 
 
 # =================================================
@@ -1375,7 +1402,212 @@ with tab_agent:
                 st.caption(
                     str(error)
                 )
-    
+
+
+# =================================================
+# Demand Forecast tab
+# =================================================
+
+
+with tab_forecast:
+    st.subheader(
+        "EV Charging Demand Forecast"
+    )
+
+    st.caption(
+        "Machine-learning forecast using "
+        "historical charging demand, temporal "
+        "patterns, weather, spatial station "
+        "features, and mobility signals."
+    )
+
+    forecast_hours = st.selectbox(
+        "Forecast horizon",
+        options=[
+            12,
+            24,
+            48,
+        ],
+        index=1,
+    )
+
+    try:
+        with st.spinner(
+            "Generating demand forecast..."
+        ):
+            forecast = (
+                get_station_forecast(
+                    access_token,
+                    station_id,
+                    forecast_hours,
+                )
+            )
+
+        summary = (
+            forecast[
+                "summary"
+            ]
+        )
+
+        metric1, metric2, metric3, metric4 = (
+            st.columns(
+                4
+            )
+        )
+
+        with metric1:
+            st.metric(
+                "Peak Demand",
+                (
+                    f"{summary['peak_energy_kwh']:.1f} "
+                    "kWh"
+                ),
+            )
+
+        with metric2:
+            st.metric(
+                "Total Forecast",
+                (
+                    f"{summary['total_predicted_energy_kwh']:.1f} "
+                    "kWh"
+                ),
+            )
+
+        with metric3:
+            st.metric(
+                "Average / Hour",
+                (
+                    f"{summary['average_hourly_energy_kwh']:.1f} "
+                    "kWh"
+                ),
+            )
+
+        with metric4:
+            risk = (
+                forecast[
+                    "peak_risk"
+                ]
+            )
+
+            if risk == "high":
+                st.error(
+                    "Peak risk: HIGH"
+                )
+
+            elif risk == "medium":
+                st.warning(
+                    "Peak risk: MEDIUM"
+                )
+
+            else:
+                st.success(
+                    "Peak risk: LOW"
+                )
+
+        st.caption(
+            "Peak expected at "
+            f"{summary['peak_timestamp']}"
+        )
+
+        points = pd.DataFrame(
+            forecast[
+                "points"
+            ]
+        )
+
+        points[
+            "timestamp"
+        ] = pd.to_datetime(
+            points[
+                "timestamp"
+            ]
+        )
+
+        st.markdown(
+            "### Predicted hourly demand"
+        )
+
+        st.line_chart(
+            points,
+            x="timestamp",
+            y=(
+                "predicted_energy_kwh"
+            ),
+        )
+
+        st.markdown(
+            "### Forecast details"
+        )
+
+        st.dataframe(
+            points[
+                [
+                    "timestamp",
+                    "predicted_energy_kwh",
+                    "risk_level",
+                    "temperature_c",
+                    "precipitation_mm",
+                    "mobility_index",
+                ]
+            ],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        st.divider()
+
+        st.write(
+            "**Model:**",
+            forecast[
+                "model_version"
+            ],
+        )
+
+        st.write(
+            "**History source:**",
+            forecast[
+                "history_source"
+            ],
+        )
+
+        st.write(
+            "**Weather source:**",
+            forecast[
+                "weather_source"
+            ],
+        )
+
+        if (
+            forecast[
+                "history_source"
+            ]
+            == "demo_simulation"
+        ):
+            st.warning(
+                "This forecasting demo currently "
+                "uses simulated charging history. "
+                "It must not be interpreted as "
+                "measured ChargeOps operational data."
+            )
+
+    except httpx.HTTPStatusError as error:
+        show_http_error(
+            error
+        )
+
+    except httpx.HTTPError as error:
+        st.error(
+            "Could not connect to the "
+            "ChargeOps forecasting service."
+        )
+
+        st.caption(
+            str(
+                error
+            )
+        )
+
+
 # =================================================
 # Incidents tab
 # =================================================

@@ -261,6 +261,45 @@ class Settings(BaseSettings):
     
     mcp_streamable_http_path: str = "/mcp"
 
+    # =============================================
+    # EV demand forecasting
+    # =============================================
+    
+    forecast_model_artifact_path: str = (
+        "artifacts/demand_forecast.joblib"
+    )
+    
+    forecast_history_path: str = (
+        "data/forecasting/demand_history.csv"
+    )
+    
+    forecast_history_label: str = (
+        "demo_simulation"
+    )
+    
+    forecast_default_horizon_hours: int = Field(
+        default=24,
+        ge=1,
+        le=48,
+    )
+    
+    forecast_max_horizon_hours: int = Field(
+        default=48,
+        ge=1,
+        le=72,
+    )
+    
+    forecast_max_history_age_hours: int = Field(
+        default=48,
+        ge=1,
+        le=168,
+    )
+    
+    forecast_weather_timeout_seconds: float = Field(
+        default=10.0,
+        ge=2.0,
+        le=30.0,
+    )
 
     # =============================================
     # External MCP client

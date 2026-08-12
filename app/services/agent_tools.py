@@ -20,6 +20,10 @@ from app.mcp.external_fetch_client import (
     ExternalReferenceSource,
     fetch_external_reference,
 )
+from app.ml.forecasting.runtime import (
+    ForecastRuntimeError,
+    forecast_station_demand,
+)
 from app.schemas.agent import ToolTrace
 from app.schemas.knowledge import (
     KnowledgeSearchResult,
@@ -42,6 +46,19 @@ from app.services.weather_service import (
     WeatherServiceError,
     get_current_weather,
 )
+
+# =================================================
+# Demand Forecast Arguments
+# =================================================
+
+class DemandForecastToolArguments(
+    BaseModel
+):
+    hours: int = Field(
+        ge=1,
+        le=48,
+    )
+
 
 # =================================================
 # Serializable station context
@@ -110,6 +127,39 @@ class StationStatusToolArguments(
 # =================================================
 # OpenAI tool definitions
 # =================================================
+
+DEMAND_FORECAST_TOOL: (
+    FunctionToolParam
+) = {
+    "type": "function",
+    "name": (
+        "forecast_station_demand"
+    ),
+    "description": (
+        "Forecast EV charging energy demand "
+        "for the selected station over the "
+        "next 1 to 48 hours using the trained "
+        "ChargeOps machine-learning model."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "hours": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 48,
+                "description": (
+                    "Forecast horizon in hours."
+                ),
+            }
+        },
+        "required": [
+            "hours",
+        ],
+        "additionalProperties": False,
+    },
+    "strict": True,
+}
 
 STANDARDS_SPECIALIST_TOOL: (
     FunctionToolParam
@@ -349,6 +399,7 @@ TOOLS: list[FunctionToolParam] = [
     STATION_TOOL,
     INCIDENT_HISTORY_TOOL,
     WEATHER_TOOL,
+    DEMAND_FORECAST_TOOL,
     KNOWLEDGE_TOOL,
     STANDARDS_SPECIALIST_TOOL,
     STATION_STATUS_TOOL,
@@ -395,6 +446,45 @@ AVAILABLE TOOLS:
     Delegates current OCPP / Open Charge Alliance research to a
     specialized read-only research agent.
 
+9. forecast_station_demand
+    Forecasts future EV charging energy demand for the selected
+    station using the ChargeOps machine-learning forecasting pipeline.
+
+DEMAND FORECASTING:
+
+When the user asks about:
+
+- expected charging demand
+- future station load
+- next-hour demand
+- next-day demand
+- peak charging period
+- expected peak demand
+- demand risk
+- whether a station is likely to become busy
+- forecasted EV charging energy
+
+use this sequence:
+
+1. Call get_station_details.
+2. Call forecast_station_demand with the requested horizon.
+3. Use the returned forecast as predictive evidence.
+
+Do not call get_station_weather separately just to produce a demand
+forecast. The forecasting pipeline already incorporates hourly weather.
+
+Never claim a forecast is a guaranteed future outcome.
+
+Clearly describe forecasts as predictions.
+
+If history_source is "demo_simulation", explicitly disclose that the
+current forecasting model is running on simulated demonstration
+charging history rather than real ChargeOps operational telemetry.
+
+Do not present simulated historical data as measured real-world demand.
+
+Peak-risk levels are predictive operational indicators, not emergency
+or safety classifications.
     
 SPECIALIST DELEGATION:
 
@@ -1165,4 +1255,71 @@ async def execute_standards_specialist_tool(
         result,
         trace,
     )
+
+async def execute_demand_forecast_tool(
+    station: StationContext,
+    hours: int,
+) -> tuple[
+    dict[str, Any],
+    ToolTrace,
+]:
+    try:
+        result = (
+            await forecast_station_demand(
+                station[
+                    "station_id"
+                ],
+                hours,
+            )
+        )
+
+    except ForecastRuntimeError:
+        result = {
+            "available": False,
+            "station_id": (
+                station[
+                    "station_id"
+                ]
+            ),
+            "error": (
+                "Demand forecasting is "
+                "temporarily unavailable."
+            ),
+        }
+
+        return (
+            result,
+            ToolTrace(
+                tool=(
+                    "forecast_station_demand"
+                ),
+                status="error",
+                summary=(
+                    "Demand forecast could "
+                    "not be generated."
+                ),
+            ),
+        )
+
+    summary = result[
+        "summary"
+    ]
+
+    return (
+        result,
+        ToolTrace(
+            tool=(
+                "forecast_station_demand"
+            ),
+            status="success",
+            summary=(
+                f"{hours}-hour demand forecast "
+                f"generated; peak "
+                f"{summary['peak_energy_kwh']} "
+                f"kWh; risk "
+                f"{result['peak_risk']}."
+            ),
+        ),
+    )
+
 
