@@ -30,6 +30,7 @@ from app.services.station_service import (
     update_station_status,
 )
 from app.services.weather_service import (
+    WeatherServiceError,
     get_current_weather,
 )
 
@@ -390,6 +391,16 @@ IMPORTANT:
 - Separate evidence from inference.
 - Clearly state uncertainty.
 - Do not call weather merely because an over-temperature fault exists.
+
+TOOL FAILURE HANDLING:
+
+- If a tool reports that a dependency is temporarily unavailable,
+  do not invent the missing information.
+- Do not repeatedly call the same failed external tool in the same turn.
+- Continue using other trusted information when the request can still
+  be answered safely.
+- Clearly tell the user which information was unavailable.
+- A failed optional tool must never be presented as successful.
 """
 
 
@@ -524,31 +535,77 @@ async def execute_weather_tool(
     dict[str, Any],
     ToolTrace,
 ]:
-    observed_at, weather = await get_current_weather(
-        latitude=station["latitude"],
-        longitude=station["longitude"],
-    )
+    try:
+        observed_at, weather = (
+            await get_current_weather(
+                latitude=(
+                    station["latitude"]
+                ),
+                longitude=(
+                    station["longitude"]
+                ),
+            )
+        )
+
+    except WeatherServiceError:
+        result: dict[
+            str,
+            Any,
+        ] = {
+            "station_id": (
+                station["station_id"]
+            ),
+            "location": (
+                station["location"]
+            ),
+            "available": False,
+            "error": (
+                "Current weather data is "
+                "temporarily unavailable."
+            ),
+        }
+
+        trace = ToolTrace(
+            tool="get_station_weather",
+            status="error",
+            summary=(
+                "Current weather data is "
+                "temporarily unavailable."
+            ),
+        )
+
+        return result, trace
 
     result = {
-        "station_id": station["station_id"],
-        "location": station["location"],
-        "observed_at": observed_at.isoformat(),
-        "weather": weather.model_dump(),
+        "station_id": (
+            station["station_id"]
+        ),
+        "location": (
+            station["location"]
+        ),
+        "available": True,
+        "observed_at": (
+            observed_at.isoformat()
+        ),
+        "weather": (
+            weather.model_dump()
+        ),
     }
 
     trace = ToolTrace(
         tool="get_station_weather",
         status="success",
         summary=(
-            f"Temperature {weather.temperature_c}°C, "
+            f"Temperature "
+            f"{weather.temperature_c}°C, "
             f"precipitation "
             f"{weather.precipitation_mm} mm, "
-            f"wind {weather.wind_speed_kmh} km/h"
+            f"wind "
+            f"{weather.wind_speed_kmh} km/h"
         ),
     )
 
     return result, trace
-
 
 # =================================================
 # Knowledge retrieval

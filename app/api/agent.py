@@ -29,9 +29,9 @@ from app.services.agent_service import (
     resume_agent,
     run_agent,
 )
-from app.services.observability_service import (
-    complete_pending_agent_run,
-    record_agent_run,
+from app.services.observability_resilience import (
+    safe_complete_pending_agent_run,
+    safe_record_agent_run,
 )
 
 router = APIRouter(
@@ -97,8 +97,7 @@ async def run_chargeops_agent(
             is not None
         )
 
-        await record_agent_run(
-            session=session,
+        await safe_record_agent_run(
             run_id=run_id,
             thread_id=str(
                 thread_id
@@ -185,8 +184,7 @@ async def resume_chargeops_agent(
         )
 
         completed_run = (
-            await complete_pending_agent_run(
-                session=session,
+            await safe_complete_pending_agent_run(
                 thread_id=str(
                     request.thread_id
                 ),

@@ -21,6 +21,9 @@ from app.api.auth import (
 from app.api.chat import (
     router as chat_router,
 )
+from app.api.health import (
+    router as health_router,
+)
 from app.api.incidents import (
     router as incidents_router,
 )
@@ -48,8 +51,14 @@ from app.core.checkpointing import (
     initialize_checkpointing,
 )
 from app.core.config import settings
+from app.core.database import (
+    dispose_database,
+)
 from app.core.error_handling import (
     register_error_handling,
+)
+from app.core.openai_client import (
+    close_openai_client,
 )
 from app.core.production_security import (
     validate_production_security,
@@ -57,7 +66,13 @@ from app.core.production_security import (
 from app.core.security_headers import (
     SecurityHeadersMiddleware,
 )
+from app.services.weather_service import (
+    close_weather_client,
+)
 
+logger = logging.getLogger(
+    __name__
+)
 logging.basicConfig(
     level=logging.INFO,
     format=(
@@ -75,10 +90,42 @@ async def lifespan(
         settings
     )
     await initialize_checkpointing()
-
-    yield
-
-    await close_checkpointing()
+    
+    try:
+        yield
+    
+    finally:
+        shutdown_operations = [
+            (
+                "weather HTTP client",
+                close_weather_client,
+            ),
+            (
+                "OpenAI HTTP client",
+                close_openai_client,
+            ),
+            (
+                "LangGraph checkpointing",
+                close_checkpointing,
+            ),
+            (
+                "SQLAlchemy database engine",
+                dispose_database,
+            ),
+        ]
+    
+        for (
+            resource_name,
+            close_resource,
+        ) in shutdown_operations:
+            try:
+                await close_resource()
+    
+            except Exception:
+                logger.exception(
+                    "Failed to close %s cleanly.",
+                    resource_name,
+                )
 
 is_production = (
     settings.app_environment
@@ -160,6 +207,10 @@ app.include_router(
 
 app.include_router(
     users_router
+)
+
+app.include_router(
+    health_router
 )
 
 # =================================================
