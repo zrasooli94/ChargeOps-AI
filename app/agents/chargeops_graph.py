@@ -38,12 +38,14 @@ from app.services.agent_tools import (
     DiagnosticToolArguments,
     ExternalReferenceToolArguments,
     KnowledgeToolArguments,
+    StandardsSpecialistToolArguments,
     StationContext,
     StationStatusToolArguments,
     execute_diagnostic_tool,
     execute_external_reference_tool,
     execute_incident_history_tool,
     execute_knowledge_tool,
+    execute_standards_specialist_tool,
     execute_station_status_tool,
     execute_station_tool,
     execute_weather_tool,
@@ -528,6 +530,30 @@ async def execute_tools_node(
                 )
             )
 
+
+        # =========================================
+        # Standards specialist subagent
+        # =========================================
+
+        elif (
+            tool_name
+            == "consult_standards_specialist"
+        ):
+            arguments = (
+                StandardsSpecialistToolArguments
+                .model_validate_json(
+                    arguments_json
+                )
+            )
+
+            (
+                tool_result,
+                tool_trace,
+            ) = (
+                await execute_standards_specialist_tool(
+                    arguments.question
+                )
+            )
 
         # =========================================
         # Protected station status change

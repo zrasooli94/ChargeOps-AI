@@ -77,7 +77,7 @@ def make_client_context(
     return context
 
 
-def test_external_tool_is_registered(
+def test_low_level_external_mcp_tool_is_not_exposed_to_supervisor(
 ) -> None:
     names = {
         tool["name"]
@@ -86,6 +86,11 @@ def test_external_tool_is_registered(
 
     assert (
         "fetch_external_ev_reference"
+        not in names
+    )
+
+    assert (
+        "consult_standards_specialist"
         in names
     )
 
