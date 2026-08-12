@@ -36,10 +36,12 @@ from app.services.agent_tools import (
     AGENT_INSTRUCTIONS,
     TOOLS,
     DiagnosticToolArguments,
+    ExternalReferenceToolArguments,
     KnowledgeToolArguments,
     StationContext,
     StationStatusToolArguments,
     execute_diagnostic_tool,
+    execute_external_reference_tool,
     execute_incident_history_tool,
     execute_knowledge_tool,
     execute_station_status_tool,
@@ -501,6 +503,31 @@ async def execute_tools_node(
             )
 
             knowledge_retrieved = True
+
+        # =========================================
+        # External MCP reference
+        # =========================================
+
+        elif (
+            tool_name
+            == "fetch_external_ev_reference"
+        ):
+            arguments = (
+                ExternalReferenceToolArguments
+                .model_validate_json(
+                    arguments_json
+                )
+            )
+
+            (
+                tool_result,
+                tool_trace,
+            ) = (
+                await execute_external_reference_tool(
+                    arguments.source
+                )
+            )
+
 
         # =========================================
         # Protected station status change

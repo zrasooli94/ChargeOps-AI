@@ -248,6 +248,54 @@ class Settings(BaseSettings):
     )
 
     # =============================================
+    # Model Context Protocol
+    # =============================================
+    
+    mcp_host: str = "127.0.0.1"
+    
+    mcp_port: int = Field(
+        default=8001,
+        ge=1024,
+        le=65535,
+    )
+    
+    mcp_streamable_http_path: str = "/mcp"
+
+
+    # =============================================
+    # External MCP client
+    # =============================================
+    
+    external_mcp_timeout_seconds: float = Field(
+        default=45.0,
+        ge=5.0,
+        le=90.0,
+    )
+    
+    external_mcp_max_content_chars: int = Field(
+        default=8000,
+        ge=1000,
+        le=20000,
+    )
+    
+    external_mcp_allowed_hosts: str = (
+        "openchargealliance.org"
+    )
+    
+    @property
+    def external_mcp_allowed_hosts_list(
+        self,
+    ) -> list[str]:
+        return [
+            host.strip().lower()
+            for host in (
+                self.external_mcp_allowed_hosts
+                .split(",")
+            )
+            if host.strip()
+        ]
+
+    # =============================================
     # Pydantic settings
     # =============================================
 
