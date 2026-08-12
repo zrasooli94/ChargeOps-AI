@@ -80,3 +80,8 @@ data/forecasting/*.csv
 dist
 build
 *.egg-info
+
+
+# Database backups
+*.dump
+*.backup

@@ -1,0 +1,7 @@
+databases:
+  - name: chargeops-db
+    plan: free
+    region: singapore
+    postgresMajorVersion: "17"
+    databaseName: chargeops
+    user: chargeops

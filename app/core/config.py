@@ -1,6 +1,9 @@
 from typing import Literal
 
-from pydantic import Field
+from pydantic import (
+    Field,
+    field_validator,
+)
 from pydantic_settings import (
     BaseSettings,
     SettingsConfigDict,
@@ -160,6 +163,7 @@ class Settings(BaseSettings):
         ge=0.5,
         le=15.0,
     )
+
 
     # =============================================
     # JWT / session security
@@ -354,5 +358,51 @@ class Settings(BaseSettings):
             1,
         )
 
+    @field_validator(
+        "database_url",
+        mode="before",
+    )
+    @classmethod
+    def normalize_database_url(
+        cls,
+        value: object,
+    ) -> object:
+        """
+        Normalize standard PostgreSQL URLs to the
+        SQLAlchemy psycopg driver URL used by ChargeOps.
+    
+        Cloud providers commonly provide either:
+            postgres://...
+            postgresql://...
+    
+        ChargeOps internally uses:
+            postgresql+psycopg://...
+        """
+    
+        if not isinstance(
+            value,
+            str,
+        ):
+            return value
+    
+        if value.startswith(
+            "postgres://"
+        ):
+            return value.replace(
+                "postgres://",
+                "postgresql+psycopg://",
+                1,
+            )
+    
+        if value.startswith(
+            "postgresql://"
+        ):
+            return value.replace(
+                "postgresql://",
+                "postgresql+psycopg://",
+                1,
+            )
+    
+        return value
 
 settings = Settings()
