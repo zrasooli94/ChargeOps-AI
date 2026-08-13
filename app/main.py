@@ -60,6 +60,9 @@ from app.core.database import (
 from app.core.error_handling import (
     register_error_handling,
 )
+from app.core.monitoring import (
+    configure_monitoring,
+)
 from app.core.openai_client import (
     close_openai_client,
 )
@@ -158,7 +161,9 @@ app = FastAPI(
 register_error_handling(
     app
 )
-
+configure_monitoring(
+    app
+)
 # =================================================
 # CORS
 # =================================================
