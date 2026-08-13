@@ -28,7 +28,8 @@ case "${SERVICE}" in
             frontend/app.py \
             --server.address=0.0.0.0 \
             --server.port="${PORT:-8501}" \
-            --server.headless=true
+            --server.headless=true \
+            --server.baseUrlPath=""
         ;;
 
     *)
