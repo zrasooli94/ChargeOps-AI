@@ -107,6 +107,7 @@ async function forward(request, context) {
         "connection"
     ].forEach((name)=>headers.delete(name));
     headers.set("Authorization", `Bearer ${token}`);
+    headers.set("Accept-Encoding", "identity");
     const method = request.method;
     const body = method === "GET" || method === "HEAD" ? undefined : await request.arrayBuffer();
     const upstream = await fetch(upstreamUrl, {
@@ -118,6 +119,7 @@ async function forward(request, context) {
     const responseHeaders = new Headers(upstream.headers);
     responseHeaders.delete("content-encoding");
     responseHeaders.delete("transfer-encoding");
+    responseHeaders.delete("content-length");
     const response = new __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"](upstream.body, {
         status: upstream.status,
         headers: responseHeaders

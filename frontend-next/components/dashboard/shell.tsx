@@ -28,25 +28,77 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   async function refreshStations() {
     const data = await api.stations();
     setStations(data);
-    const saved = localStorage.getItem("chargeops_station_id");
+    let saved: string | null = null;
+
+    try {
+      saved = window.localStorage.getItem("chargeops_station_id");
+    } catch {}
     const next = data.find((s) => s.station_id === saved)?.station_id ?? data[0]?.station_id ?? "";
     setStationIdState((current) => current || next);
   }
 
   useEffect(() => {
-    Promise.all([api.me(), api.stations()])
-      .then(([me, stationData]) => {
+    let active = true;
+  
+    async function bootstrap() {
+      // Authentication check
+      try {
+        const me = await api.me();
+      
+        if (!active) return;
         setUser(me);
+      } catch (error) {
+        console.error("Authentication check failed:", error);
+      
+        if (active) {
+          window.location.replace("/");
+        }
+      
+        return;
+      }
+    
+      // Station loading should NEVER log the user out
+      try {
+        const stationData = await api.stations();
+      
+        if (!active) return;
+      
         setStations(stationData);
-        const saved = localStorage.getItem("chargeops_station_id");
-        setStationIdState(stationData.find((s) => s.station_id === saved)?.station_id ?? stationData[0]?.station_id ?? "");
-      })
-      .catch(() => { window.location.href = "/"; });
+      
+        let saved: string | null = null;
+      
+        try {
+          saved = window.localStorage.getItem("chargeops_station_id");
+        } catch (error) {
+          console.warn("Could not read saved station:", error);
+        }
+      
+        const next =
+          stationData.find((s) => s.station_id === saved)?.station_id ??
+          stationData[0]?.station_id ??
+          "";
+      
+        setStationIdState(next);
+      } catch (error) {
+        console.error("Could not load stations:", error);
+      }
+    }
+  
+    bootstrap();
+  
+    return () => {
+      active = false;
+    };
   }, []);
 
   function setStationId(value: string) {
     setStationIdState(value);
-    localStorage.setItem("chargeops_station_id", value);
+
+    try {
+      window.localStorage.setItem("chargeops_station_id", value);
+    } catch (error) {
+      console.warn("Could not save station:", error);
+    }
   }
 
   const station = useMemo(() => stations.find((s) => s.station_id === stationId) ?? null, [stations, stationId]);

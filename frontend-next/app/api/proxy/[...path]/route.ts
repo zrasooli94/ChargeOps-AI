@@ -19,8 +19,12 @@ async function forward(request: Request, context: Context) {
   const sourceUrl = new URL(request.url);
   const upstreamUrl = `${backend}/${path.join("/")}${sourceUrl.search}`;
   const headers = new Headers(request.headers);
-  ["host", "cookie", "content-length", "connection"].forEach((name) => headers.delete(name));
+  ["host", "cookie", "content-length", "connection"].forEach((name) =>
+    headers.delete(name)
+  );
+
   headers.set("Authorization", `Bearer ${token}`);
+  headers.set("Accept-Encoding", "identity");
 
   const method = request.method;
   const body = method === "GET" || method === "HEAD" ? undefined : await request.arrayBuffer();
@@ -32,8 +36,10 @@ async function forward(request: Request, context: Context) {
   });
 
   const responseHeaders = new Headers(upstream.headers);
+
   responseHeaders.delete("content-encoding");
   responseHeaders.delete("transfer-encoding");
+  responseHeaders.delete("content-length");
 
   const response = new NextResponse(upstream.body, {
     status: upstream.status,

@@ -5,9 +5,5 @@
   "/dashboard/agent/page": "app/dashboard/agent/page.js",
   "/dashboard/forecast/page": "app/dashboard/forecast/page.js",
   "/dashboard/incidents/page": "app/dashboard/incidents/page.js",
-  "/dashboard/knowledge/page": "app/dashboard/knowledge/page.js",
-  "/dashboard/observability/page": "app/dashboard/observability/page.js",
-  "/dashboard/system/page": "app/dashboard/system/page.js",
-  "/dashboard/users/page": "app/dashboard/users/page.js",
   "/page": "app/page.js"
 }

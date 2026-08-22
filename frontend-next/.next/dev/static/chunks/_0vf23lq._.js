@@ -93,34 +93,63 @@ function DashboardShell({ children }) {
     async function refreshStations() {
         const data = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["api"].stations();
         setStations(data);
-        const saved = localStorage.getItem("chargeops_station_id");
+        let saved = null;
+        try {
+            saved = window.localStorage.getItem("chargeops_station_id");
+        } catch  {}
         const next = data.find((s)=>s.station_id === saved)?.station_id ?? data[0]?.station_id ?? "";
         setStationIdState((current)=>current || next);
     }
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
         "DashboardShell.useEffect": ()=>{
-            Promise.all([
-                __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["api"].me(),
-                __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["api"].stations()
-            ]).then({
-                "DashboardShell.useEffect": ([me, stationData])=>{
+            let active = true;
+            async function bootstrap() {
+                // Authentication check
+                try {
+                    const me = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["api"].me();
+                    if (!active) return;
                     setUser(me);
+                } catch (error) {
+                    console.error("Authentication check failed:", error);
+                    if (active) {
+                        window.location.replace("/");
+                    }
+                    return;
+                }
+                // Station loading should NEVER log the user out
+                try {
+                    const stationData = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["api"].stations();
+                    if (!active) return;
                     setStations(stationData);
-                    const saved = localStorage.getItem("chargeops_station_id");
-                    setStationIdState(stationData.find({
-                        "DashboardShell.useEffect": (s)=>s.station_id === saved
-                    }["DashboardShell.useEffect"])?.station_id ?? stationData[0]?.station_id ?? "");
+                    let saved = null;
+                    try {
+                        saved = window.localStorage.getItem("chargeops_station_id");
+                    } catch (error) {
+                        console.warn("Could not read saved station:", error);
+                    }
+                    const next = stationData.find({
+                        "DashboardShell.useEffect.bootstrap": (s)=>s.station_id === saved
+                    }["DashboardShell.useEffect.bootstrap"])?.station_id ?? stationData[0]?.station_id ?? "";
+                    setStationIdState(next);
+                } catch (error) {
+                    console.error("Could not load stations:", error);
                 }
-            }["DashboardShell.useEffect"]).catch({
+            }
+            bootstrap();
+            return ({
                 "DashboardShell.useEffect": ()=>{
-                    window.location.href = "/";
+                    active = false;
                 }
-            }["DashboardShell.useEffect"]);
+            })["DashboardShell.useEffect"];
         }
     }["DashboardShell.useEffect"], []);
     function setStationId(value) {
         setStationIdState(value);
-        localStorage.setItem("chargeops_station_id", value);
+        try {
+            window.localStorage.setItem("chargeops_station_id", value);
+        } catch (error) {
+            console.warn("Could not save station:", error);
+        }
     }
     const station = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useMemo"])({
         "DashboardShell.useMemo[station]": ()=>stations.find({
@@ -152,7 +181,7 @@ function DashboardShell({ children }) {
                                     children: "ϟ"
                                 }, void 0, false, {
                                     fileName: "[project]/components/dashboard/shell.tsx",
-                                    lineNumber: 59,
+                                    lineNumber: 111,
                                     columnNumber: 42
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -161,26 +190,26 @@ function DashboardShell({ children }) {
                                             children: "ChargeOps"
                                         }, void 0, false, {
                                             fileName: "[project]/components/dashboard/shell.tsx",
-                                            lineNumber: 59,
+                                            lineNumber: 111,
                                             columnNumber: 61
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("strong", {
                                             children: "AI"
                                         }, void 0, false, {
                                             fileName: "[project]/components/dashboard/shell.tsx",
-                                            lineNumber: 59,
+                                            lineNumber: 111,
                                             columnNumber: 77
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/dashboard/shell.tsx",
-                                    lineNumber: 59,
+                                    lineNumber: 111,
                                     columnNumber: 56
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/dashboard/shell.tsx",
-                            lineNumber: 59,
+                            lineNumber: 111,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -190,7 +219,7 @@ function DashboardShell({ children }) {
                             children: collapsed ? "→" : "←"
                         }, void 0, false, {
                             fileName: "[project]/components/dashboard/shell.tsx",
-                            lineNumber: 60,
+                            lineNumber: 112,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("nav", {
@@ -203,25 +232,25 @@ function DashboardShell({ children }) {
                                             children: icon
                                         }, void 0, false, {
                                             fileName: "[project]/components/dashboard/shell.tsx",
-                                            lineNumber: 63,
+                                            lineNumber: 115,
                                             columnNumber: 127
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                             children: name
                                         }, void 0, false, {
                                             fileName: "[project]/components/dashboard/shell.tsx",
-                                            lineNumber: 63,
+                                            lineNumber: 115,
                                             columnNumber: 140
                                         }, this)
                                     ]
                                 }, href, true, {
                                     fileName: "[project]/components/dashboard/shell.tsx",
-                                    lineNumber: 63,
+                                    lineNumber: 115,
                                     columnNumber: 15
                                 }, this))
                         }, void 0, false, {
                             fileName: "[project]/components/dashboard/shell.tsx",
-                            lineNumber: 61,
+                            lineNumber: 113,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -234,7 +263,7 @@ function DashboardShell({ children }) {
                                             children: user?.email?.[0]?.toUpperCase() ?? "?"
                                         }, void 0, false, {
                                             fileName: "[project]/components/dashboard/shell.tsx",
-                                            lineNumber: 67,
+                                            lineNumber: 119,
                                             columnNumber: 43
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -243,26 +272,26 @@ function DashboardShell({ children }) {
                                                     children: user?.email ?? "Loading…"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/dashboard/shell.tsx",
-                                                    lineNumber: 67,
+                                                    lineNumber: 119,
                                                     columnNumber: 101
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("small", {
                                                     children: user?.role ?? ""
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/dashboard/shell.tsx",
-                                                    lineNumber: 67,
+                                                    lineNumber: 119,
                                                     columnNumber: 135
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/dashboard/shell.tsx",
-                                            lineNumber: 67,
+                                            lineNumber: 119,
                                             columnNumber: 96
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/dashboard/shell.tsx",
-                                    lineNumber: 67,
+                                    lineNumber: 119,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -270,19 +299,19 @@ function DashboardShell({ children }) {
                                     children: "Log out"
                                 }, void 0, false, {
                                     fileName: "[project]/components/dashboard/shell.tsx",
-                                    lineNumber: 68,
+                                    lineNumber: 120,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/dashboard/shell.tsx",
-                            lineNumber: 66,
+                            lineNumber: 118,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/components/dashboard/shell.tsx",
-                    lineNumber: 58,
+                    lineNumber: 110,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("section", {
@@ -297,7 +326,7 @@ function DashboardShell({ children }) {
                                     children: "☰"
                                 }, void 0, false, {
                                     fileName: "[project]/components/dashboard/shell.tsx",
-                                    lineNumber: 74,
+                                    lineNumber: 126,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -307,7 +336,7 @@ function DashboardShell({ children }) {
                                             children: "Station"
                                         }, void 0, false, {
                                             fileName: "[project]/components/dashboard/shell.tsx",
-                                            lineNumber: 75,
+                                            lineNumber: 127,
                                             columnNumber: 50
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("select", {
@@ -322,18 +351,18 @@ function DashboardShell({ children }) {
                                                     ]
                                                 }, s.station_id, true, {
                                                     fileName: "[project]/components/dashboard/shell.tsx",
-                                                    lineNumber: 75,
+                                                    lineNumber: 127,
                                                     columnNumber: 164
                                                 }, this))
                                         }, void 0, false, {
                                             fileName: "[project]/components/dashboard/shell.tsx",
-                                            lineNumber: 75,
+                                            lineNumber: 127,
                                             columnNumber: 70
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/dashboard/shell.tsx",
-                                    lineNumber: 75,
+                                    lineNumber: 127,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -341,20 +370,20 @@ function DashboardShell({ children }) {
                                     children: [
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("i", {}, void 0, false, {
                                             fileName: "[project]/components/dashboard/shell.tsx",
-                                            lineNumber: 76,
+                                            lineNumber: 128,
                                             columnNumber: 40
                                         }, this),
                                         " Backend live"
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/dashboard/shell.tsx",
-                                    lineNumber: 76,
+                                    lineNumber: 128,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/dashboard/shell.tsx",
-                            lineNumber: 73,
+                            lineNumber: 125,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -362,24 +391,24 @@ function DashboardShell({ children }) {
                             children: children
                         }, void 0, false, {
                             fileName: "[project]/components/dashboard/shell.tsx",
-                            lineNumber: 78,
+                            lineNumber: 130,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/components/dashboard/shell.tsx",
-                    lineNumber: 72,
+                    lineNumber: 124,
                     columnNumber: 9
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/components/dashboard/shell.tsx",
-            lineNumber: 57,
+            lineNumber: 109,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/components/dashboard/shell.tsx",
-        lineNumber: 56,
+        lineNumber: 108,
         columnNumber: 5
     }, this);
 }
