@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 64, "column": 0}, "map": {"version":3,"sources":["file:///Users/zakerhussainrasooli/FreeProjects/ChargeOps-AI/frontend-next/app/api/auth/logout/route.ts"],"sourcesContent":["import { cookies } from \"next/headers\";\nimport { NextResponse } from \"next/server\";\n\nexport async function POST() {\n  const cookieStore = await cookies();\n  cookieStore.delete(\"chargeops_token\");\n  return NextResponse.json({ ok: true });\n}\n"],"names":["POST","cookieStore","delete","json","ok"],"mappings":";;;;AAAA;AACA;;;AAEO,eAAeA;IACpB,MAAMC,cAAc,MAAM,IAAA,4IAAO;IACjCA,YAAYC,MAAM,CAAC;IACnB,OAAO,gJAAY,CAACC,IAAI,CAAC;QAAEC,IAAI;IAAK;AACtC"}}]
+}
