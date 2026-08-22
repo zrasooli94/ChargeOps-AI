@@ -13,11 +13,13 @@ API_BASE_URL = os.getenv(
     "http://127.0.0.1:8000",
 )
 
+
 st.set_page_config(
     page_title="ChargeOps AI",
     page_icon="⚡",
     layout="wide",
 )
+
 
 DEMO_EMAIL = os.getenv(
     "CHARGEOPS_DEMO_EMAIL",
@@ -28,6 +30,7 @@ DEMO_PASSWORD = os.getenv(
     "CHARGEOPS_DEMO_PASSWORD",
     "",
 )
+
 
 def inject_chargeops_theme() -> None:
     """Apply the ChargeOps/CXOps-inspired visual system."""
