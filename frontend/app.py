@@ -21,6 +21,662 @@ st.set_page_config(
 )
 
 
+DEMO_EMAIL = os.getenv(
+    "CHARGEOPS_DEMO_EMAIL",
+    "demo@chargeops.ai",
+)
+
+DEMO_PASSWORD = os.getenv(
+    "CHARGEOPS_DEMO_PASSWORD",
+    "",
+)
+
+
+def inject_chargeops_theme() -> None:
+    """Apply the ChargeOps/CXOps-inspired visual system."""
+    st.markdown(
+        """
+        <style>
+        :root {
+            --chargeops-bg: #f8f7ff;
+            --chargeops-surface: rgba(255, 255, 255, 0.88);
+            --chargeops-card: #ffffff;
+            --chargeops-line: #e9e5ff;
+            --chargeops-line-strong: #d9d1ff;
+            --chargeops-ink: #17172a;
+            --chargeops-muted: #6e6b83;
+            --chargeops-purple: #6d4aff;
+            --chargeops-purple-2: #8b5cf6;
+            --chargeops-blue: #6366f1;
+            --chargeops-cyan: #5eead4;
+            --chargeops-green: #16a34a;
+            --chargeops-shadow: 0 18px 55px rgba(87, 70, 180, 0.10);
+        }
+
+        html, body, [class*="css"] {
+            font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont,
+                "Segoe UI", sans-serif;
+            color: var(--chargeops-ink);
+        }
+
+        .stApp {
+            background:
+                radial-gradient(circle at 76% 5%, rgba(124, 92, 255, .16), transparent 24rem),
+                radial-gradient(circle at 15% 30%, rgba(99, 102, 241, .08), transparent 30rem),
+                linear-gradient(180deg, #fcfbff 0%, #f7f6ff 48%, #f4f6ff 100%);
+        }
+
+        [data-testid="stAppViewContainer"] > .main {
+            background: transparent;
+        }
+
+        [data-testid="stHeader"], #MainMenu, footer {
+            visibility: hidden;
+            height: 0;
+        }
+
+        .block-container {
+            max-width: 1500px;
+            padding-top: 1.15rem;
+            padding-bottom: 4rem;
+        }
+
+        /* Sidebar = calm control rail */
+        section[data-testid="stSidebar"] {
+            background:
+                radial-gradient(circle at 30% 0%, rgba(124, 92, 255, .20), transparent 16rem),
+                linear-gradient(180deg, #fbfaff 0%, #f4f1ff 100%);
+            border-right: 1px solid var(--chargeops-line);
+        }
+
+        section[data-testid="stSidebar"] > div {
+            padding-top: 1.2rem;
+        }
+
+        section[data-testid="stSidebar"] h1,
+        section[data-testid="stSidebar"] h2,
+        section[data-testid="stSidebar"] h3 {
+            color: #202033;
+            letter-spacing: -0.02em;
+        }
+
+        /* Inputs */
+        [data-testid="stTextInput"] input,
+        [data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+        [data-testid="stNumberInput"] input,
+        textarea {
+            background: rgba(255,255,255,.96) !important;
+            border: 1px solid #e6e1ff !important;
+            border-radius: 13px !important;
+            box-shadow: 0 5px 18px rgba(87, 70, 180, .05) !important;
+        }
+
+        [data-testid="stTextInput"] input:focus,
+        textarea:focus {
+            border-color: #8b5cf6 !important;
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, .12) !important;
+        }
+
+        /* Buttons */
+        .stButton > button,
+        .stFormSubmitButton > button {
+            min-height: 2.75rem;
+            border-radius: 12px;
+            border: 1px solid #7657ff;
+            background: linear-gradient(135deg, #7252ff 0%, #633cff 55%, #7c3aed 100%);
+            color: white;
+            font-weight: 700;
+            box-shadow: 0 10px 24px rgba(109, 74, 255, .22);
+            transition: transform .16s ease, box-shadow .16s ease, opacity .16s ease;
+        }
+
+        .stButton > button:hover,
+        .stFormSubmitButton > button:hover {
+            color: white;
+            border-color: #5b35f0;
+            transform: translateY(-1px);
+            box-shadow: 0 14px 30px rgba(109, 74, 255, .30);
+        }
+
+        .stButton > button:active,
+        .stFormSubmitButton > button:active {
+            transform: translateY(0);
+        }
+
+        /* Forms / cards */
+        [data-testid="stForm"] {
+            background: rgba(255,255,255,.90);
+            border: 1px solid var(--chargeops-line);
+            border-radius: 20px;
+            padding: 1.1rem 1.15rem 1.15rem;
+            box-shadow: var(--chargeops-shadow);
+            backdrop-filter: blur(18px);
+        }
+
+        [data-testid="stMetric"] {
+            background: rgba(255,255,255,.92);
+            border: 1px solid var(--chargeops-line);
+            border-radius: 18px;
+            padding: 1rem 1.05rem;
+            box-shadow: 0 12px 34px rgba(87, 70, 180, .075);
+        }
+
+        [data-testid="stMetricLabel"] {
+            color: var(--chargeops-muted);
+            font-weight: 650;
+        }
+
+        [data-testid="stMetricValue"] {
+            color: #19192d;
+            letter-spacing: -0.03em;
+        }
+
+        /* Tabs styled like CXOps top navigation */
+        [data-testid="stTabs"] {
+            margin-top: .8rem;
+        }
+
+        [data-testid="stTabs"] [data-baseweb="tab-list"] {
+            gap: .35rem;
+            padding: .45rem;
+            background: rgba(255,255,255,.88);
+            border: 1px solid var(--chargeops-line);
+            border-radius: 16px;
+            box-shadow: 0 12px 34px rgba(87, 70, 180, .075);
+            backdrop-filter: blur(14px);
+            overflow-x: auto;
+        }
+
+        [data-testid="stTabs"] button[role="tab"] {
+            border-radius: 11px;
+            padding: .6rem .9rem;
+            color: #615e72;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        [data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+            color: #5f3df3;
+            background: linear-gradient(135deg, rgba(109,74,255,.12), rgba(99,102,241,.08));
+        }
+
+        [data-testid="stTabs"] [data-baseweb="tab-highlight"] {
+            background-color: #6d4aff;
+            height: 2px;
+        }
+
+        /* Expanders / notices / data */
+        [data-testid="stExpander"] {
+            background: rgba(255,255,255,.88);
+            border: 1px solid var(--chargeops-line) !important;
+            border-radius: 15px !important;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(87,70,180,.055);
+        }
+
+        [data-testid="stAlert"] {
+            border-radius: 14px;
+            border-width: 1px;
+        }
+
+        [data-testid="stDataFrame"],
+        [data-testid="stTable"] {
+            border: 1px solid var(--chargeops-line);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 28px rgba(87,70,180,.05);
+        }
+
+        [data-testid="stChatMessage"] {
+            background: rgba(255,255,255,.88);
+            border: 1px solid var(--chargeops-line);
+            border-radius: 18px;
+            padding: .45rem .65rem;
+            box-shadow: 0 9px 24px rgba(87,70,180,.05);
+        }
+
+        [data-testid="stChatInput"] textarea {
+            border-radius: 16px !important;
+        }
+
+        /* Custom surfaces */
+        .co-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: .82rem 1rem;
+            margin-bottom: 1.1rem;
+            background: rgba(255,255,255,.78);
+            border: 1px solid var(--chargeops-line);
+            border-radius: 18px;
+            box-shadow: 0 12px 36px rgba(87,70,180,.07);
+            backdrop-filter: blur(16px);
+        }
+
+        .co-brand {
+            display: flex;
+            align-items: center;
+            gap: .7rem;
+            font-weight: 850;
+            letter-spacing: -0.035em;
+            font-size: 1.25rem;
+        }
+
+        .co-logo {
+            width: 38px;
+            height: 38px;
+            display: grid;
+            place-items: center;
+            border-radius: 12px;
+            color: white;
+            font-size: 1.15rem;
+            background: linear-gradient(145deg, #9b72ff, #6541f2);
+            box-shadow: 0 9px 20px rgba(109,74,255,.28), inset 0 1px 0 rgba(255,255,255,.35);
+        }
+
+        .co-ai {
+            color: #6d4aff;
+        }
+
+        .co-status {
+            display: inline-flex;
+            align-items: center;
+            gap: .45rem;
+            color: #4a475b;
+            font-size: .88rem;
+            font-weight: 700;
+            padding: .45rem .7rem;
+            border: 1px solid #dfdafb;
+            border-radius: 999px;
+            background: rgba(255,255,255,.9);
+        }
+
+        .co-status-dot {
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 999px;
+            box-shadow: 0 0 0 4px rgba(34,197,94,.10);
+        }
+
+        .co-hero {
+            position: relative;
+            overflow: hidden;
+            min-height: 480px;
+            padding: clamp(1.5rem, 4vw, 3.3rem);
+            background:
+                radial-gradient(circle at 85% 20%, rgba(124,92,255,.22), transparent 22rem),
+                radial-gradient(circle at 10% 85%, rgba(99,102,241,.10), transparent 22rem),
+                linear-gradient(145deg, rgba(255,255,255,.98), rgba(247,245,255,.94));
+            border: 1px solid var(--chargeops-line);
+            border-radius: 30px;
+            box-shadow: 0 28px 80px rgba(87,70,180,.12);
+        }
+
+        .co-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: .45rem;
+            padding: .45rem .72rem;
+            background: rgba(109,74,255,.08);
+            color: #6442ed;
+            border: 1px solid rgba(109,74,255,.15);
+            border-radius: 999px;
+            font-weight: 750;
+            font-size: .82rem;
+        }
+
+        .co-hero h1 {
+            margin: 1rem 0 .55rem;
+            max-width: 850px;
+            font-size: clamp(3rem, 7vw, 6.2rem);
+            line-height: .93;
+            letter-spacing: -.065em;
+            color: #151528;
+        }
+
+        .co-gradient-text {
+            background: linear-gradient(90deg, #6842f2 0%, #8b5cf6 50%, #5b6df5 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .co-hero-copy {
+            max-width: 760px;
+            font-size: clamp(1.05rem, 1.8vw, 1.28rem);
+            line-height: 1.65;
+            color: #625f75;
+        }
+
+        .co-chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .55rem;
+            margin-top: 1.3rem;
+        }
+
+        .co-chip {
+            padding: .5rem .68rem;
+            background: rgba(255,255,255,.88);
+            border: 1px solid #e5e0ff;
+            border-radius: 11px;
+            color: #4f4b61;
+            font-weight: 650;
+            font-size: .84rem;
+            box-shadow: 0 6px 18px rgba(87,70,180,.045);
+        }
+
+        .co-workspace {
+            margin-top: 1.6rem;
+            border-radius: 24px;
+            border: 1px solid #e5e0ff;
+            background: linear-gradient(145deg, rgba(255,255,255,.72), rgba(239,235,255,.82));
+            overflow: hidden;
+            min-height: 220px;
+        }
+
+        .co-login-title {
+            margin: 0 0 .2rem;
+            font-size: 1.55rem;
+            line-height: 1.15;
+            letter-spacing: -.03em;
+        }
+
+        .co-login-copy {
+            margin: 0 0 .9rem;
+            color: #777286;
+            line-height: 1.55;
+        }
+
+        .co-demo-note {
+            display: flex;
+            gap: .55rem;
+            align-items: flex-start;
+            margin-top: .7rem;
+            padding: .72rem .85rem;
+            border-radius: 12px;
+            background: #f6f3ff;
+            border: 1px solid #e8e2ff;
+            color: #645f77;
+            font-size: .82rem;
+            line-height: 1.45;
+        }
+
+        .co-dashboard-hero {
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr);
+            gap: 1rem;
+            margin: 1.1rem 0 1.25rem;
+        }
+
+        .co-dashboard-main,
+        .co-robot-panel {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--chargeops-line);
+            border-radius: 24px;
+            background: rgba(255,255,255,.90);
+            box-shadow: 0 18px 50px rgba(87,70,180,.09);
+        }
+
+        .co-dashboard-main {
+            padding: 1.45rem 1.55rem;
+        }
+
+        .co-dashboard-main h2 {
+            margin: 0 0 .4rem;
+            font-size: clamp(1.65rem, 2.8vw, 2.35rem);
+            letter-spacing: -.045em;
+            color: #19192d;
+        }
+
+        .co-dashboard-main p {
+            margin: 0;
+            color: #706c80;
+        }
+
+        .co-dashboard-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .55rem;
+            margin-top: 1rem;
+        }
+
+        .co-meta-card {
+            min-width: 150px;
+            padding: .75rem .85rem;
+            border-radius: 13px;
+            background: #faf9ff;
+            border: 1px solid #ece8ff;
+        }
+
+        .co-meta-label {
+            color: #8b8797;
+            font-size: .75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .055em;
+        }
+
+        .co-meta-value {
+            margin-top: .15rem;
+            color: #27263a;
+            font-size: .95rem;
+            font-weight: 760;
+        }
+
+        .co-robot-panel {
+            min-height: 195px;
+            background:
+                radial-gradient(circle at 50% 38%, rgba(126, 87, 255, .18), transparent 45%),
+                linear-gradient(145deg, #f7f5ff, #eeeaff);
+        }
+
+        .co-robot-panel svg,
+        .co-workspace svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .co-section-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 1.25rem 0 .55rem;
+        }
+
+        .co-section-title h3 {
+            margin: 0;
+            font-size: 1.05rem;
+            color: #333044;
+            letter-spacing: -.02em;
+        }
+
+        @media (max-width: 1000px) {
+            .co-dashboard-hero {
+                grid-template-columns: 1fr;
+            }
+            .co-robot-panel {
+                min-height: 170px;
+            }
+        }
+
+        @media (max-width: 760px) {
+            .block-container {
+                padding-left: .8rem;
+                padding-right: .8rem;
+            }
+            .co-topbar {
+                padding: .72rem .8rem;
+            }
+            .co-status {
+                font-size: .76rem;
+            }
+            .co-hero {
+                min-height: unset;
+                padding: 1.25rem;
+                border-radius: 22px;
+            }
+            .co-hero h1 {
+                font-size: clamp(2.8rem, 16vw, 4.5rem);
+            }
+            .co-workspace {
+                min-height: 170px;
+            }
+            [data-testid="stTabs"] [data-baseweb="tab-list"] {
+                border-radius: 13px;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def robot_workspace_svg() -> str:
+    """Small inline SVG so the robotic-workspace look ships in app.py."""
+    return """
+    <svg viewBox="0 0 760 300" role="img" aria-label="Robotic EV operations workspace">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#fcfbff"/>
+          <stop offset="1" stop-color="#e9e4ff"/>
+        </linearGradient>
+        <linearGradient id="purple" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#9b7cff"/>
+          <stop offset="1" stop-color="#5e3bf3"/>
+        </linearGradient>
+        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="6" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <rect width="760" height="300" fill="url(#bg)"/>
+      <g opacity=".55" stroke="#c9c0ff" stroke-width="1">
+        <path d="M0 245H760M0 268H760"/>
+        <path d="M90 210V300M180 210V300M270 210V300M360 210V300M450 210V300M540 210V300M630 210V300"/>
+      </g>
+      <g transform="translate(42 42)">
+        <rect x="0" y="0" width="318" height="170" rx="18" fill="#fff" opacity=".92" stroke="#ddd6fe"/>
+        <rect x="20" y="20" width="78" height="54" rx="12" fill="#f6f3ff" stroke="#e9e2ff"/>
+        <rect x="112" y="20" width="78" height="54" rx="12" fill="#f6f3ff" stroke="#e9e2ff"/>
+        <rect x="204" y="20" width="94" height="54" rx="12" fill="#f6f3ff" stroke="#e9e2ff"/>
+        <circle cx="44" cy="45" r="10" fill="#8b5cf6" opacity=".2"/>
+        <path d="M42 50l12-16v10h8L48 61V50z" fill="#6d4aff"/>
+        <path d="M24 131 C65 116 88 140 124 117 S192 125 222 94 S270 103 292 78" fill="none" stroke="#6d4aff" stroke-width="5" stroke-linecap="round"/>
+        <path d="M24 146H292" stroke="#ebe7ff" stroke-width="2"/>
+        <circle cx="292" cy="78" r="5" fill="#6d4aff"/>
+      </g>
+      <g transform="translate(470 26)">
+        <ellipse cx="118" cy="232" rx="115" ry="18" fill="#8b5cf6" opacity=".10"/>
+        <ellipse cx="118" cy="224" rx="72" ry="12" fill="none" stroke="#8b5cf6" stroke-width="3" opacity=".55"/>
+        <ellipse cx="118" cy="224" rx="42" ry="7" fill="none" stroke="#6d4aff" stroke-width="2" filter="url(#glow)"/>
+        <rect x="82" y="184" width="78" height="45" rx="18" fill="#f8f7ff" stroke="#bfb4ff" stroke-width="4"/>
+        <circle cx="120" cy="184" r="23" fill="#fff" stroke="#b9adff" stroke-width="7"/>
+        <g transform="rotate(-30 120 184)">
+          <rect x="111" y="95" width="20" height="92" rx="10" fill="#fff" stroke="#b9adff" stroke-width="6"/>
+          <circle cx="121" cy="94" r="19" fill="#fff" stroke="#b9adff" stroke-width="7"/>
+          <rect x="113" y="41" width="16" height="62" rx="8" fill="#fff" stroke="#b9adff" stroke-width="6"/>
+          <circle cx="121" cy="40" r="16" fill="#fff" stroke="#b9adff" stroke-width="6"/>
+          <rect x="116" y="12" width="10" height="31" rx="5" fill="url(#purple)"/>
+        </g>
+        <path d="M121 15 C120 42 96 50 85 63" fill="none" stroke="#6d4aff" stroke-width="3" stroke-dasharray="5 6" opacity=".55"/>
+      </g>
+      <g transform="translate(646 72)">
+        <rect x="0" y="0" width="54" height="132" rx="18" fill="#222038"/>
+        <rect x="7" y="8" width="40" height="116" rx="13" fill="#faf9ff" stroke="#8b5cf6" stroke-width="3"/>
+        <circle cx="27" cy="41" r="13" fill="url(#purple)"/>
+        <path d="M24 49l10-15v9h7L28 58v-9z" fill="#fff" transform="scale(.72) translate(10 16)"/>
+        <path d="M45 91 C77 102 60 134 38 145" fill="none" stroke="#353247" stroke-width="6" stroke-linecap="round"/>
+      </g>
+      <g opacity=".72">
+        <rect x="375" y="56" width="100" height="54" rx="13" fill="#fff" stroke="#d8d0ff"/>
+        <path d="M392 91h65" stroke="#ddd7ff" stroke-width="4" stroke-linecap="round"/>
+        <path d="M392 78h38" stroke="#8b5cf6" stroke-width="5" stroke-linecap="round"/>
+        <circle cx="448" cy="78" r="7" fill="#22c55e" opacity=".75"/>
+      </g>
+    </svg>
+    """
+
+
+def render_topbar() -> None:
+    st.markdown(
+        """
+        <div class="co-topbar">
+          <div class="co-brand">
+            <span class="co-logo">ϟ</span>
+            <span>ChargeOps <span class="co-ai">AI</span></span>
+          </div>
+          <div class="co-status"><span class="co-status-dot"></span> All systems operational</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_login_hero() -> None:
+    st.markdown(
+        f"""
+        <div class="co-hero">
+          <span class="co-eyebrow">✦ Production agentic EV operations</span>
+          <h1>AI operations,<br><span class="co-gradient-text">under control.</span></h1>
+          <div class="co-hero-copy">
+            One bright control plane for EV charging operations, RAG knowledge,
+            demand forecasting, incident response, human approvals and production observability.
+          </div>
+          <div class="co-chip-row">
+            <span class="co-chip">⚡ Station intelligence</span>
+            <span class="co-chip">🤖 Agentic workflows</span>
+            <span class="co-chip">◈ RAG knowledge</span>
+            <span class="co-chip">↗ Demand forecasting</span>
+            <span class="co-chip">◎ Observability</span>
+          </div>
+          <div class="co-workspace">{robot_workspace_svg()}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_dashboard_header(
+    current_user: dict,
+    user_role: str,
+    station_id: str,
+    station_name: str,
+    charger_model: str,
+    location: str,
+    station_status: str,
+) -> None:
+    status_text = station_status.title()
+    email = current_user.get("email", "Unknown user")
+    st.markdown(
+        f"""
+        <div class="co-dashboard-hero">
+          <div class="co-dashboard-main">
+            <span class="co-eyebrow">✦ Intelligent EV operations</span>
+            <h2>ChargeOps <span class="co-gradient-text">Control Plane</span></h2>
+            <p>Forecast demand, investigate incidents, retrieve RAG knowledge and supervise AI actions from one operational workspace.</p>
+            <div class="co-dashboard-meta">
+              <div class="co-meta-card"><div class="co-meta-label">Station</div><div class="co-meta-value">{station_id} — {station_name}</div></div>
+              <div class="co-meta-card"><div class="co-meta-label">Charger</div><div class="co-meta-value">{charger_model}</div></div>
+              <div class="co-meta-card"><div class="co-meta-label">Location</div><div class="co-meta-value">{location}</div></div>
+              <div class="co-meta-card"><div class="co-meta-label">Status</div><div class="co-meta-value">{status_text}</div></div>
+              <div class="co-meta-card"><div class="co-meta-label">Signed in</div><div class="co-meta-value">{email} · {user_role.title()}</div></div>
+            </div>
+          </div>
+          <div class="co-robot-panel">{robot_workspace_svg()}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+inject_chargeops_theme()
+
+
 # =================================================
 # Backend API functions
 # =================================================
@@ -537,18 +1193,11 @@ def show_http_error(
 
 
 # =================================================
-# Main header
+# Main shell / health
 # =================================================
 
 
-st.title(
-    "⚡ ChargeOps AI"
-)
-
-st.caption(
-    "Agentic EV Charging Intelligence "
-    "& Operations Platform"
-)
+render_topbar()
 
 
 # =================================================
@@ -579,35 +1228,55 @@ access_token = st.session_state.get(
 )
 
 if not access_token:
-    st.subheader(
-        "🔐 Sign in to ChargeOps"
+    hero_col, login_col = st.columns(
+        [1.35, 0.65],
+        gap="large",
     )
 
-    st.write(
-        "Use your ChargeOps account to access "
-        "the operations dashboard."
-    )
+    with hero_col:
+        render_login_hero()
 
-    with st.form(
-        "chargeops_login_form"
-    ):
-        email = st.text_input(
-            "Email",
-            placeholder=(
-                "operator@chargeops.local"
-            ),
+    with login_col:
+        st.markdown(
+            """
+            <h2 class="co-login-title">Experience ChargeOps AI</h2>
+            <p class="co-login-copy">
+                Demo access is prepared for portfolio visitors. The fields are pre-filled;
+                just click <strong>Enter ChargeOps</strong>.
+            </p>
+            """,
+            unsafe_allow_html=True,
         )
 
-        password = st.text_input(
-            "Password",
-            type="password",
-        )
-
-        login_submitted = (
-            st.form_submit_button(
-                "Sign in",
-                use_container_width=True,
+        with st.form(
+            "chargeops_login_form"
+        ):
+            email = st.text_input(
+                "Email",
+                value=DEMO_EMAIL,
             )
+
+            password = st.text_input(
+                "Password",
+                value=DEMO_PASSWORD,
+                type="password",
+            )
+
+            login_submitted = (
+                st.form_submit_button(
+                    "Enter ChargeOps →",
+                    use_container_width=True,
+                )
+            )
+
+        st.markdown(
+            """
+            <div class="co-demo-note">
+              <span>🛡️</span>
+              <span>Public demo credentials are loaded from environment variables, so the password does not need to live in your source code.</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
     if login_submitted:
@@ -892,6 +1561,19 @@ with st.sidebar:
         st.rerun()
 
 
+
+
+render_dashboard_header(
+    current_user=current_user,
+    user_role=user_role,
+    station_id=station_id,
+    station_name=station_name,
+    charger_model=charger_model,
+    location=location,
+    station_status=station_status,
+)
+
+
 # =================================================
 # Load operational data
 # =================================================
@@ -981,20 +1663,20 @@ st.divider()
 
 
 tab_labels = [
-    "🤖 Agent",
-    "📈 Demand Forecast",
-    "🚨 Incidents",
-    "📚 Knowledge Base",
-    "📊 Observability",
+    "AI Agent",
+    "Demand Forecast",
+    "Incidents",
+    "Knowledge",
+    "Observability",
 ]
 
 if is_admin:
     tab_labels.append(
-        "👥 Users"
+        "Users"
     )
 
 tab_labels.append(
-    "⚙️ System"
+    "System"
 )
 
 tabs = st.tabs(
