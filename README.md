@@ -23,6 +23,10 @@
 
 ## 🔐 Live Demo Access
 
+<p align="center">
+  <img src="docs/screenshots/01-landing.png" alt="ChargeOps AI Next.js landing page" width="100%">
+</p>
+
 ChargeOps AI requires authentication.
 
 A restricted **Viewer** account is available for portfolio review. The live login page is configured with the demo account so reviewers can explore the application without receiving operator or administrative privileges.
@@ -87,6 +91,10 @@ ChargeOps is designed around the concerns that matter in production AI engineeri
 
 ## 🤖 Agentic EV Operations
 
+<p align="center">
+  <img src="docs/screenshots/02-agent.png" alt="ChargeOps AI agent operations workspace" width="100%">
+</p>
+
 The ChargeOps agent can reason over charging-station context and choose tools including:
 
 - `get_station_details`
@@ -141,6 +149,10 @@ Final Grounded Response
 
 ## 📚 Retrieval-Augmented Generation
 
+<p align="center">
+  <img src="docs/screenshots/04-knowledge.png" alt="ChargeOps AI knowledge base and semantic retrieval" width="100%">
+</p>
+
 ChargeOps includes a production-style knowledge pipeline:
 
 ```text
@@ -180,6 +192,10 @@ The public application exposes retrieval results and supporting sources so the R
 ---
 
 ## 📈 EV Charging Demand Forecasting
+
+<p align="center">
+  <img src="docs/screenshots/03-demand-forecast.png" alt="ChargeOps AI EV charging demand forecast" width="100%">
+</p>
 
 ChargeOps includes an EV demand forecasting subsystem built with scikit-learn.
 
@@ -315,6 +331,10 @@ External content is treated as untrusted reference material and does not bypass 
 
 # Observability & Evaluation
 
+<p align="center">
+  <img src="docs/screenshots/06-observability.png" alt="ChargeOps AI observability and agent runs" width="100%">
+</p>
+
 ## Persistent Agent Telemetry
 
 ChargeOps stores execution telemetry in PostgreSQL, including:
@@ -407,6 +427,10 @@ Key frontend capabilities include:
 ---
 
 # System Architecture
+
+<p align="center">
+  <img src="docs/screenshots/05-system-architecture.png" alt="ChargeOps AI system architecture" width="100%">
+</p>
 
 ```mermaid
 flowchart TB
