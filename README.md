@@ -3,68 +3,83 @@
 **Agentic EV Charging Intelligence & Operations Platform**
 
 [![CI/CD](https://github.com/zrasooli94/ChargeOps-AI/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/zrasooli94/ChargeOps-AI/actions/workflows/ci-cd.yml)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-149ECA.svg)](https://react.dev/)
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-API-009688.svg)](https://fastapi.tiangolo.com/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-Agentic_AI-purple.svg)](https://www.langchain.com/langgraph)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-336791.svg)](https://www.postgresql.org/)
-[![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED.svg)](https://www.docker.com/)
+[![Vercel](https://img.shields.io/badge/Frontend-Vercel-black.svg)](https://vercel.com/)
+[![Render](https://img.shields.io/badge/API-Render-46E3B7.svg)](https://render.com/)
+[![Neon](https://img.shields.io/badge/Database-Neon-00E699.svg)](https://neon.tech/)
 
-**Live application:** https://chargeops-frontend.onrender.com  
-**Demo login:** [demo@chargeops.ai](mailto:demo@chargeops.ai)  
-**Demo password:** `hyhsod-qiScec-5waxni`  
+**Live application:** https://chargeops-ai.vercel.app  
 **API documentation:** https://chargeops-api.onrender.com/docs  
 **Source:** https://github.com/zrasooli94/ChargeOps-AI
 
-> **Portfolio note:** The public deployment uses free-tier cloud infrastructure, so the first request can take longer while services wake from an idle state.
+> **Portfolio note:** The public deployment uses portfolio-friendly cloud infrastructure. The Render API may require a short warm-up after a period of inactivity.
 
 ---
 
 ## 🔐 Live Demo Access
 
-The public ChargeOps deployment requires authentication.
+ChargeOps AI requires authentication.
 
-Use the dedicated read-only portfolio account:
+A restricted **Viewer** account is available for portfolio review. The live login page is configured with the demo account so reviewers can explore the application without receiving operator or administrative privileges.
 
-```text
-Email: demo@chargeops.ai
-Password: hyhsod-qiScec-5waxni
-Role: Viewer
-```
+**Demo email:** `demo@chargeops.ai`
 
-The demo account is intentionally restricted. It can explore station intelligence, safe agent workflows, demand forecasting, incidents, and knowledge retrieval, but it cannot perform privileged operational changes or administrative actions.
+The Viewer role can explore:
 
----
+- station intelligence
+- agent workflows
+- demand forecasting
+- incidents
+- knowledge retrieval
+- system architecture
 
-<p align="center">
-  <img src="docs/screenshots/01-dashboard.png" alt="ChargeOps AI operations dashboard" width="100%">
-</p>
+Privileged write operations, observability administration, knowledge management, and user management remain protected by RBAC.
 
 ---
 
 ## Overview
 
-ChargeOps AI is a production-style Generative AI and Agentic AI platform for EV charging operations.
+ChargeOps AI is a production-style **Generative AI and Agentic AI platform for EV charging operations**.
 
-It combines a secure FastAPI backend, LangGraph-based agent orchestration, PostgreSQL + pgvector retrieval, machine-learning demand forecasting, human-in-the-loop operational controls, multi-agent standards research, authentication/RBAC, observability, Prometheus-compatible monitoring, Docker, CI/CD, and a Streamlit operations dashboard.
+It combines:
 
-The goal is to demonstrate how an AI agent can operate against **trusted application state and real tools** rather than behave as a standalone chatbot.
+- a modern **Next.js + React + TypeScript** frontend
+- a secure **FastAPI** backend
+- **LangGraph** agent orchestration
+- **PostgreSQL + pgvector** retrieval
+- machine-learning demand forecasting
+- human-in-the-loop operational controls
+- multi-agent standards research
+- authentication and RBAC
+- observability and evaluation
+- Prometheus-compatible monitoring
+- Docker and CI/CD
+- production cloud deployment across **Vercel, Render, and Neon**
+
+The core engineering goal is to demonstrate how an AI agent can operate against **trusted application state and real tools** rather than behave as a standalone chatbot.
 
 ---
 
-## What ChargeOps Demonstrates
+# What ChargeOps Demonstrates
 
-ChargeOps is designed around the kinds of concerns that matter in production AI engineering:
+ChargeOps is designed around the concerns that matter in production AI engineering:
 
-- **Agentic AI** with tool selection, conditional routing, persistent memory and multi-step workflows
+- **Agentic AI** with tool selection, conditional routing, persistent memory, and multi-step workflows
 - **Retrieval-Augmented Generation** using OpenAI embeddings and PostgreSQL/pgvector
 - **Human-in-the-loop safety** for protected operational changes
 - **Deterministic authentication and RBAC** outside the LLM
-- **Multi-agent delegation** for standards/research workflows
+- **Multi-agent delegation** for standards and research workflows
 - **Model Context Protocol (MCP)** integrations for external reference access
 - **Machine-learning forecasting** for EV charging demand
-- **Observability and evaluation** for model/tool behavior
-- **Production monitoring** through health checks, correlated logs and Prometheus-compatible metrics
-- **Containerized cloud deployment** with automated CI/CD
+- **Observability and evaluation** for model and tool behavior
+- **Production monitoring** through health checks, correlated logs, and Prometheus-compatible metrics
+- **Secure frontend/backend separation** through a server-side Next.js API proxy
+- **Cloud deployment** with automated GitHub, Vercel, Render, and Neon workflows
 
 ---
 
@@ -72,7 +87,7 @@ ChargeOps is designed around the kinds of concerns that matter in production AI 
 
 ## 🤖 Agentic EV Operations
 
-The ChargeOps agent can reason over station context and choose tools including:
+The ChargeOps agent can reason over charging-station context and choose tools including:
 
 - `get_station_details`
 - `get_recent_incidents`
@@ -85,11 +100,42 @@ The ChargeOps agent can reason over station context and choose tools including:
 
 The agent uses trusted runtime context rather than asking the LLM to invent operational state.
 
-<p align="center">
-  <img src="docs/screenshots/02-agent-tools.png" alt="ChargeOps AI agent tool activity" width="100%">
-</p>
+It can combine multiple tools in a single workflow. For example, the agent can retrieve station metadata, inspect recent incidents, check weather, query internal knowledge, and then produce an operational recommendation.
 
-The agent can combine multiple tools in a single workflow, for example retrieving station metadata and recent incidents before producing an operational recommendation.
+---
+
+## 🧠 LangGraph Orchestration
+
+ChargeOps uses LangGraph for stateful agent execution.
+
+The graph supports:
+
+- persistent threads
+- checkpoint-backed memory
+- conditional tool routing
+- multi-step tool execution
+- resumable workflows
+- human approval interrupts
+- protected write operations
+- execution telemetry
+
+Conceptually:
+
+```text
+User Request
+    ↓
+ChargeOps Agent
+    ↓
+Intent + Context Evaluation
+    ↓
+Tool Selection / Delegation
+    ↓
+Trusted Application Tools
+    ↓
+Optional Human Approval
+    ↓
+Final Grounded Response
+```
 
 ---
 
@@ -110,7 +156,7 @@ Chunking
       ↓
 OpenAI Embeddings
       ↓
-PostgreSQL + pgvector
+Neon PostgreSQL + pgvector
       ↓
 Semantic Retrieval
       ↓
@@ -119,7 +165,7 @@ Grounded Agent Answer
 
 Knowledge features include:
 
-- PDF, TXT and Markdown ingestion
+- PDF, TXT, and Markdown ingestion
 - OpenAI `text-embedding-3-small`
 - 1536-dimensional embeddings
 - pgvector HNSW cosine-similarity indexing
@@ -129,11 +175,7 @@ Knowledge features include:
 - duplicate-document protection
 - admin-only ingestion and deletion
 
-<p align="center">
-  <img src="docs/screenshots/04-rag-knowledge.png" alt="ChargeOps RAG knowledge retrieval" width="100%">
-</p>
-
-The public demo can show retrieved knowledge sources together with qualified similarity results, making the RAG workflow visible rather than hidden behind a generic chat interface.
+The public application exposes retrieval results and supporting sources so the RAG workflow is visible rather than hidden behind a generic chat interface.
 
 ---
 
@@ -150,20 +192,32 @@ The forecasting pipeline combines:
 - mobility signals
 - lagged demand features
 
-The UI provides:
+The frontend provides:
 
 - 24-hour demand forecasts
 - predicted hourly energy demand
 - peak demand
 - total forecast demand
 - average hourly demand
-- risk classification
-
-<p align="center">
-  <img src="docs/screenshots/03-demand-forecast.png" alt="ChargeOps demand forecast" width="100%">
-</p>
+- operational risk classification
 
 > **Data disclosure:** The current public portfolio deployment uses simulated demonstration demand history to validate the forecasting and operational-intelligence pipeline. It should not be interpreted as production utility telemetry.
+
+---
+
+## 🚨 Incident Intelligence
+
+ChargeOps exposes station incidents through the operations interface.
+
+Capabilities include:
+
+- station-specific incident history
+- operational context for agent reasoning
+- incident lifecycle visibility
+- operator/admin status updates
+- integration with agent diagnosis workflows
+
+RBAC prevents Viewer accounts from performing privileged incident updates.
 
 ---
 
@@ -209,6 +263,8 @@ ChargeOps implements deterministic server-side authentication and authorization.
 - database role/account state checked on authenticated requests
 - no public registration
 - password hashes never returned by API responses
+- access token stored by the Next.js server proxy in an **HttpOnly cookie**
+- browser clients do not store FastAPI bearer tokens in `localStorage`
 
 ## Roles
 
@@ -229,9 +285,9 @@ ChargeOps implements deterministic server-side authentication and authorization.
 | Delete knowledge documents | ❌ | ❌ | ✅ |
 | Manage users | ❌ | ❌ | ✅ |
 
-The Streamlit UI hides unavailable controls for usability, while FastAPI remains the authoritative security boundary.
+The Next.js interface hides unavailable controls for usability, while FastAPI remains the authoritative security boundary.
 
-The public demo credentials use the **Viewer** role so recruiters can explore the system safely without receiving write or administrative privileges.
+The public demo uses the **Viewer** role so recruiters can explore the system safely without receiving write or administrative privileges.
 
 ---
 
@@ -275,13 +331,9 @@ ChargeOps stores execution telemetry in PostgreSQL, including:
 - human-approval state
 - final answer
 
-The Streamlit dashboard includes an observability view and run inspector.
+The Next.js dashboard includes an observability interface and run inspector for authorized roles.
 
-<p align="center">
-  <img src="docs/screenshots/05-observability.png" alt="ChargeOps agent observability dashboard" width="100%">
-</p>
-
-The observability interface surfaces operational statistics such as:
+The observability interface surfaces information such as:
 
 - completed agent runs
 - average latency
@@ -320,12 +372,37 @@ The API exposes a protected Prometheus-compatible `/metrics` endpoint with:
 Production monitoring also uses:
 
 - Render health checks
-- Render service/database metrics
+- Render service metrics
 - correlated request logs
-- `Rndr-Id`
-- `CF-Ray`
 - application request IDs
-- deploy/failure notifications
+- deployment/failure notifications
+- Neon database monitoring
+
+---
+
+# Frontend Experience
+
+The current ChargeOps frontend is built with **Next.js 16, React 19, and TypeScript** using the App Router.
+
+It replaces the original Streamlit portfolio interface with a responsive product-style control plane.
+
+Key frontend capabilities include:
+
+- animated landing experience
+- responsive desktop/mobile navigation
+- shared charging-station context
+- role-aware navigation and controls
+- Agent workspace with persistent thread IDs
+- human approval/resume flows
+- demand forecasting interface
+- incident management views
+- semantic knowledge search
+- admin document upload/delete
+- observability run explorer
+- admin user/RBAC management
+- system architecture view
+- server-side authentication proxy
+- HttpOnly session handling
 
 ---
 
@@ -335,7 +412,8 @@ Production monitoring also uses:
 flowchart TB
     User["Operator / Admin / Demo Viewer"]
 
-    UI["Streamlit Operations Dashboard<br/>Render"]
+    UI["Next.js 16 + React 19 Frontend<br/>Vercel"]
+    Proxy["Next.js Server-side API Proxy<br/>HttpOnly Session Cookie"]
     API["FastAPI Application<br/>Render"]
 
     Auth["Authentication + RBAC"]
@@ -348,14 +426,15 @@ flowchart TB
     HITL["Human Approval Gate"]
     Monitoring["Observability + Monitoring"]
 
-    DB[("PostgreSQL + pgvector")]
+    DB[("Neon PostgreSQL + pgvector")]
 
     OpenAI["OpenAI APIs"]
     External["External Reference Sources"]
     LangSmith["LangSmith"]
 
     User --> UI
-    UI --> API
+    UI --> Proxy
+    Proxy --> API
 
     API --> Auth
     API --> Agent
@@ -378,6 +457,7 @@ flowchart TB
     Auth --> DB
     Agent --> DB
     Knowledge --> DB
+    Forecast --> DB
     Monitoring --> DB
 
     Agent --> LangSmith
@@ -385,32 +465,35 @@ flowchart TB
 
 ---
 
-# Cloud Deployment
+# Production Deployment
 
-The public portfolio environment is deployed as:
+The current public portfolio environment is deployed as:
 
 ```text
 Browser
-   ↓
-Streamlit Web Service
    ↓ HTTPS
-FastAPI Web Service
-   ↓
+Vercel
+Next.js Frontend
+   ↓ Server-side Proxy
+Render
+FastAPI Backend
+   ↓ TLS
+Neon
 PostgreSQL + pgvector
 ```
 
-Both application services are containerized and deployed from the same GitHub repository.
-
 ## Live Endpoints
 
-| Service | URL |
-|---|---|
-| Frontend | https://chargeops-frontend.onrender.com |
-| API Docs | https://chargeops-api.onrender.com/docs |
-| API Liveness | https://chargeops-api.onrender.com/health/live |
-| API Readiness | https://chargeops-api.onrender.com/health/ready |
+| Service | Platform | URL |
+|---|---|---|
+| Frontend | Vercel | https://chargeops-ai.vercel.app |
+| API | Render | https://chargeops-api.onrender.com |
+| API Docs | Render | https://chargeops-api.onrender.com/docs |
+| API Liveness | Render | https://chargeops-api.onrender.com/health/live |
+| API Readiness | Render | https://chargeops-api.onrender.com/health/ready |
+| Database | Neon | Private connection |
 
-The frontend communicates with the backend through the API; database credentials and AI secrets remain backend-only.
+The browser communicates with the Next.js application. Authenticated API traffic is proxied server-side to FastAPI, and database credentials, AI secrets, and access tokens remain outside browser-accessible storage.
 
 ---
 
@@ -423,13 +506,13 @@ The frontend communicates with the backend through the API; database credentials
 | Multi-Agent / Integration | Specialist agent, MCP |
 | Machine Learning | scikit-learn, pandas, NumPy |
 | Backend | Python 3.11, FastAPI, Pydantic |
-| Database | PostgreSQL, SQLAlchemy Async, Alembic |
-| Security | JWT, PyJWT, pwdlib/Argon2, RBAC, CORS/HSTS hardening |
-| Frontend | Streamlit, httpx |
+| Database | Neon PostgreSQL, SQLAlchemy Async, Alembic |
+| Security | JWT, PyJWT, pwdlib/Argon2, RBAC, HttpOnly cookies, CORS/HSTS hardening |
+| Frontend | Next.js 16, React 19, TypeScript 5.8, App Router |
 | Observability | LangSmith, PostgreSQL run telemetry, Prometheus client |
 | Testing | Pytest, Ruff |
 | DevOps | Docker, Docker Compose, GitHub Actions |
-| Cloud | Render |
+| Cloud | Vercel, Render, Neon |
 
 ---
 
@@ -476,19 +559,30 @@ ChargeOps-AI/
 │   ├── schemas/
 │   ├── services/
 │   └── main.py
+├── frontend-next/
+│   ├── app/
+│   │   ├── api/
+│   │   ├── dashboard/
+│   │   ├── globals.css
+│   │   ├── layout.tsx
+│   │   └── page.tsx
+│   ├── components/
+│   │   ├── auth/
+│   │   ├── dashboard/
+│   │   └── hero/
+│   ├── lib/
+│   │   ├── api.ts
+│   │   └── types.ts
+│   ├── package.json
+│   ├── next.config.ts
+│   └── tsconfig.json
+├── frontend/
+│   └── app.py                 # legacy Streamlit frontend
 ├── docs/
 │   ├── DEMO.md
 │   ├── diagrams/
-│   │   └── architecture.md
 │   └── screenshots/
-│       ├── 01-dashboard.png
-│       ├── 02-agent-tools.png
-│       ├── 03-demand-forecast.png
-│       ├── 04-rag-knowledge.png
-│       └── 05-observability.png
 ├── evals/
-├── frontend/
-│   └── app.py
 ├── scripts/
 ├── tests/
 ├── Dockerfile
@@ -509,52 +603,53 @@ git clone https://github.com/zrasooli94/ChargeOps-AI.git
 cd ChargeOps-AI
 ```
 
-## 2. Create a Python Environment
+## 2. Start the Backend Environment
 
 ```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
-```
-
-## 3. Install Dependencies
-
-```bash
 python -m pip install -r requirements.txt
 ```
 
-## 4. Configure Environment Variables
+## 3. Configure Backend Environment Variables
 
 ```bash
 cp .env.example .env
 ```
 
-Add your local configuration and secrets to `.env`.
+Add your local backend configuration and secrets to `.env`.
 
-> Never commit `.env`, API keys, JWT secrets, monitoring tokens or database credentials.
+> Never commit `.env`, API keys, JWT secrets, monitoring tokens, database credentials, or production secrets.
 
-## 5. Start PostgreSQL
+## 4. Start PostgreSQL for Local Development
 
 ```bash
 docker compose up -d
 docker compose ps
 ```
 
-## 6. Apply Migrations
+## 5. Apply Database Migrations
 
 ```bash
 python -m alembic upgrade head
 ```
 
-## 7. Prepare the Demonstration Forecasting Model
+## 6. Prepare the Demonstration Forecasting Model
 
 ```bash
 python -m scripts.train_demand_forecast --generate-demo
 ```
 
-## 8. Start FastAPI
+## 7. Start FastAPI
 
 ```bash
 uvicorn app.main:app --reload
+```
+
+Backend:
+
+```text
+http://127.0.0.1:8000
 ```
 
 API documentation:
@@ -563,31 +658,49 @@ API documentation:
 http://127.0.0.1:8000/docs
 ```
 
-## 9. Start Streamlit
+## 8. Configure the Next.js Frontend
 
-In another terminal:
+Open a second terminal:
 
 ```bash
-streamlit run frontend/app.py
+cd frontend-next
+cp .env.example .env.local
+```
+
+Example local frontend environment:
+
+```env
+CHARGEOPS_API_URL=http://127.0.0.1:8000
+CHARGEOPS_DEMO_EMAIL=demo@chargeops.ai
+CHARGEOPS_DEMO_PASSWORD=replace-with-your-local-demo-password
+```
+
+## 9. Start Next.js
+
+```bash
+npm install
+npm run dev
 ```
 
 Frontend:
 
 ```text
-http://localhost:8501
+http://localhost:3000
 ```
+
+The Next.js server proxies authenticated API traffic to FastAPI.
 
 ---
 
 # Docker
 
-Build the application image:
+Build the backend application image:
 
 ```bash
 docker build -t chargeops-ai:local .
 ```
 
-Or start the complete local stack:
+Or start the local backend/database stack:
 
 ```bash
 docker compose up --build -d
@@ -596,9 +709,13 @@ docker compose ps
 
 The container startup flow prepares database migrations and demonstration forecasting assets before starting the API service.
 
+The production Next.js frontend is deployed independently through Vercel.
+
 ---
 
 # Quality Checks
+
+## Backend
 
 Run Ruff:
 
@@ -618,6 +735,15 @@ Check migrations:
 python -m alembic current
 ```
 
+## Frontend
+
+```bash
+cd frontend-next
+npm run build
+```
+
+## Repository
+
 Check whitespace before committing:
 
 ```bash
@@ -628,50 +754,48 @@ git diff --check
 
 # CI/CD
 
-GitHub Actions validates changes before deployment.
+ChargeOps uses automated validation and cloud deployment.
 
 ```text
 Push / Pull Request
        ↓
-Ruff
+GitHub Actions
        ↓
-Pytest
+Ruff + Pytest
        ↓
-PostgreSQL + pgvector integration
+PostgreSQL / pgvector integration
        ↓
-Alembic migrations
+Alembic migration validation
        ↓
 Docker build
        ↓
-Publish container image
+Backend Deployment → Render
        ↓
-Render auto-deployment
+Frontend Deployment → Vercel
+       ↓
+Database → Neon
 ```
+
+The Next.js project is deployed from the `frontend-next/` root directory on Vercel.
 
 ---
 
 # Recommended Recruiter Demo Flow
 
-Use:
+1. Open https://chargeops-ai.vercel.app.
+2. Sign in with the restricted Viewer demo account.
+3. Select a charging station.
+4. Ask the Agent for station status and operational concerns.
+5. Ask for current weather and its operational impact.
+6. Generate a 24-hour demand forecast.
+7. Ask an OCPP or EV-charging troubleshooting question to exercise RAG.
+8. Review station incidents and operational context.
+9. Explore knowledge retrieval and supporting sources.
+10. Review the System page for architecture and platform design.
 
-```text
-Email: demo@chargeops.ai
-Password: hyhsod-qiScec-5waxni
-```
+Privileged features such as operator actions, human-approved write workflows, observability, knowledge administration, and user management are role protected.
 
-Then:
-
-1. Sign in to ChargeOps.
-2. Select a charging station.
-3. Ask the agent for station status and operational concerns.
-4. Ask for current weather and its operational impact.
-5. Generate a 24-hour demand forecast.
-6. Ask a technical OCPP troubleshooting question to exercise RAG.
-7. Review incidents and station context.
-8. Explore knowledge retrieval.
-9. Review the screenshots in this README for privileged features such as observability and human-approved write workflows.
-
-For the full walkthrough, see [`docs/DEMO.md`](docs/DEMO.md).
+For an extended walkthrough, see [`docs/DEMO.md`](docs/DEMO.md).
 
 ---
 
@@ -682,7 +806,8 @@ ChargeOps intentionally follows several production-oriented rules:
 - authorization is deterministic and server-side
 - LLM output never grants access
 - protected writes require human approval
-- secrets stay out of source control and frontend configuration
+- secrets stay out of source control and browser configuration
+- bearer tokens are not stored in browser `localStorage`
 - external reference content is treated as untrusted
 - RAG answers expose supporting knowledge sources
 - agent executions are observable and evaluable
@@ -690,16 +815,17 @@ ChargeOps intentionally follows several production-oriented rules:
 - metrics avoid unbounded high-cardinality labels
 - synthetic demonstration data is clearly labeled as synthetic
 - public demo access uses a restricted account rather than administrative credentials
+- frontend failures do not define backend authorization state
 
 ---
 
 # Current Limitations
 
 - The forecasting subsystem currently uses simulated demonstration demand history rather than utility production telemetry.
-- The public deployment uses portfolio/free-tier cloud infrastructure and may cold-start after inactivity.
+- The Render API may cold-start after inactivity depending on hosting configuration.
 - External services remain subject to their own availability and rate limits.
-- The current public demo account intentionally has restricted permissions.
-- This project demonstrates EV charging operations intelligence; it is not connected to live charging hardware or a production charging network.
+- The public demo account intentionally has restricted permissions.
+- ChargeOps demonstrates EV charging operations intelligence; it is not connected to live charging hardware or a production charging network.
 
 ---
 
@@ -724,16 +850,21 @@ ChargeOps intentionally follows several production-oriented rules:
 - ✅ EV demand forecasting
 - ✅ Docker containerization
 - ✅ CI/CD
-- ✅ Cloud deployment
+- ✅ FastAPI cloud deployment on Render
+- ✅ PostgreSQL + pgvector migration to Neon
+- ✅ Next.js frontend migration
+- ✅ Vercel production deployment
 - ✅ Production monitoring
-- ✅ Portfolio release preparation
+- ✅ Portfolio release
 
 ## Next
 
-- long-lived managed PostgreSQL migration for the public portfolio environment
-- continued forecasting/model validation with real-world EV charging datasets
-- production monitoring dashboards/alerting integration
+- real-world EV charging dataset validation
+- richer forecasting/model comparison and evaluation
+- production monitoring dashboards and alerting
 - additional OCPP/charging-network integrations
+- richer multi-station operational analytics
+- expanded automated agent evaluation datasets
 
 ---
 
@@ -741,7 +872,9 @@ ChargeOps intentionally follows several production-oriented rules:
 
 Please do not report sensitive credentials or personal data through public GitHub issues.
 
-The published demo credentials belong to a deliberately restricted portfolio account and are not administrative credentials.
+The public demo account is deliberately restricted and is not an administrative credential.
+
+Production secrets are supplied through deployment environment variables and are not committed to the repository.
 
 ChargeOps is a portfolio/research system and should not be used to control real charging infrastructure without additional security review, operational validation, and production hardening.
 
@@ -765,12 +898,41 @@ GitHub: https://github.com/zrasooli94
 
 ## For Reviewers
 
-If you are reviewing this project for an AI/GenAI engineering role, recommended starting points are:
+If you are reviewing this project for an AI / GenAI / Agentic AI engineering role, recommended starting points are:
 
-1. [`app/agents/chargeops_graph.py`](app/agents/chargeops_graph.py) — agent orchestration
+1. [`app/agents/chargeops_graph.py`](app/agents/chargeops_graph.py) — LangGraph orchestration
 2. [`app/services/agent_tools.py`](app/services/agent_tools.py) — operational tool layer
 3. [`app/mcp/`](app/mcp/) — MCP integrations
-4. [`app/ml/forecasting/`](app/ml/forecasting/) — demand forecasting
-5. [`app/core/`](app/core/) — security, reliability and monitoring
-6. [`evals/`](evals/) — evaluation assets
-7. [`tests/`](tests/) — regression, security and agent tests
+4. [`app/ml/forecasting/`](app/ml/forecasting/) — EV demand forecasting
+5. [`app/core/`](app/core/) — authentication, security, reliability, and monitoring
+6. [`frontend-next/`](frontend-next/) — production Next.js frontend and server-side API proxy
+7. [`evals/`](evals/) — evaluation assets
+8. [`tests/`](tests/) — regression, security, and agent tests
+
+---
+
+## Production Stack at a Glance
+
+```text
+┌────────────────────────────────────────────┐
+│                  Vercel                    │
+│      Next.js 16 + React 19 + TypeScript    │
+│   UI + HttpOnly-cookie server API proxy    │
+└──────────────────────┬─────────────────────┘
+                       │ HTTPS
+                       ▼
+┌────────────────────────────────────────────┐
+│                  Render                    │
+│             FastAPI Backend                │
+│ Auth · Agents · RAG · Forecast · Metrics   │
+└──────────────────────┬─────────────────────┘
+                       │ TLS
+                       ▼
+┌────────────────────────────────────────────┐
+│                   Neon                     │
+│        PostgreSQL 17 + pgvector 0.8        │
+│ Users · Incidents · RAG · Agent Memory     │
+└────────────────────────────────────────────┘
+```
+
+**Live:** https://chargeops-ai.vercel.app
